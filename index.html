@@ -68,6 +68,17 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 
+function showPricingModal() {
+  if (!currentUser) {
+    state.authModal = true;
+    render();
+    return;
+  }
+  state.authModal = false;
+  state.pricingModal = true;
+  render();
+}
+
 async function startCheckout() {
   if (!currentUser) {
     state.authModal = true;
@@ -380,7 +391,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#ffd700":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},isPro:false,expandedReasoning:{}};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},isPro:false,expandedReasoning:{}};
 
 function infoBtn(tooltipTitle, tooltipText) {
   const safeTitle = tooltipTitle.replace(/'/g, "&#39;");
@@ -440,7 +451,7 @@ function proOverlay(){
   return `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;z-index:10;backdrop-filter:blur(10px);background:rgba(10,15,30,.75)">
     <span style="font-size:10px;font-weight:700;color:#ffd700;letter-spacing:0.12em;margin-bottom:8px">PRO FEATURE</span>
     <p style="color:rgba(255,255,255,.7);font-size:12px;margin-bottom:14px">Unlock with TrueTrade Pro</p>
-    <button onclick="startCheckout()" style="padding:8px 18px;border-radius:10px;font-size:12px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Upgrade to Pro</button>
+    <button onclick="showPricingModal()" style="padding:8px 18px;border-radius:10px;font-size:12px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Upgrade to Pro</button>
   </div>`;
 }
 
@@ -533,7 +544,7 @@ function render(){
           <span style="font-weight:700;font-size:15px;color:#fff;margin-left:4px">TrueTradeAI</span>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
-          ${!state.isPro ? `<button onclick="startCheckout()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer">⚡ Upgrade</button>` : ''}
+          ${!state.isPro ? `<button onclick="showPricingModal()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer">⚡ Upgrade</button>` : ''}
           ${currentUser
             ? `<button onclick="state.authModal=true;render()" style="width:34px;height:34px;border-radius:50%;background:#3d85ff;border:none;color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer">&#128100;</button>`
             : `<button onclick="state.authModal=true;state.authMode='login';render()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer">Sign In</button>`
@@ -557,7 +568,7 @@ function render(){
             onkeydown="if(event.key==='Enter'){analyzeStock()}"/>
           <button onclick="analyzeStock()" style="margin:6px;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;background:#3d85ff;color:#fff">Analyze</button>
         </div>
-        <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:10px">Multi-AI consensus analysis for smarter investing${!state.isPro ? ' · <span style="color:#ffd700">3 free analyses per day</span> — <span style="color:#3d85ff;cursor:pointer" onclick="startCheckout()">Upgrade for unlimited</span>' : ''}</p>
+        <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:10px">Multi-AI consensus analysis for smarter investing${!state.isPro ? ' · <span style="color:#ffd700">3 free analyses per day</span> — <span style="color:#3d85ff;cursor:pointer" onclick="showPricingModal()">Upgrade for unlimited</span>' : ''}</p>
       </div>
 
       ${state.ticker ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -619,7 +630,7 @@ function render(){
               if (!modelData) {
                 if (proOnlyModel && !state.isPro) {
                   return `<div style="text-align:center">
-                    <button onclick="startCheckout()"
+                    <button onclick="showPricingModal()"
                       style="padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,215,0,.08);color:rgba(255,215,0,.5);border:1px solid rgba(255,215,0,.2);cursor:pointer">
                       🔒 ${name} · Pro
                     </button>
@@ -644,7 +655,7 @@ function render(){
                 </div>`;
               } else {
                 return `<div style="text-align:center">
-                  <button onclick="startCheckout()"
+                  <button onclick="showPricingModal()"
                     style="padding:4px 12px;border-radius:20px;font-size:10px;font-weight:700;background:rgba(255,215,0,.08);color:rgba(255,215,0,.5);border:1px solid rgba(255,215,0,.2);cursor:pointer">
                     🔒 ${name} Reasoning · Pro
                   </button>
@@ -884,6 +895,48 @@ function render(){
       </div>
     </footer>
 
+    ${state.pricingModal?`
+    <div onclick="state.pricingModal=false;render()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60"></div>
+    <div onclick="event.stopPropagation()" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:680px;max-width:92vw;z-index:70;background:#141b2d;border-radius:20px;border:1px solid rgba(255,255,255,.08);padding:32px 28px;max-height:88vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
+        <h3 style="font-size:20px;font-weight:800;color:#fff">Upgrade your plan</h3>
+        <button onclick="state.pricingModal=false;render()" style="background:transparent;color:rgba(255,255,255,.4);font-size:20px;border:none;cursor:pointer">×</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div style="background:#0d1426;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px">
+          <h4 style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px">Free</h4>
+          <div style="display:flex;align-items:baseline;gap:4px;margin:14px 0 4px"><span style="font-size:32px;font-weight:800;color:#fff">$0</span><span style="font-size:12px;color:rgba(255,255,255,.4)">/ month</span></div>
+          <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px">See what AI consensus looks like</p>
+          <div style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);text-align:center;border:1px solid rgba(255,255,255,.08);margin-bottom:20px">${state.isPro?'Available':'Your current plan'}</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${[
+              "3 stock analyses per day",
+              "3 AI models — Claude, GPT-4o, Gemini",
+              "X Sentiment social score"
+            ].map(f=>`<div style="display:flex;align-items:flex-start;gap:8px"><span style="color:rgba(255,255,255,.3);font-size:13px;margin-top:1px">✓</span><span style="font-size:13px;color:rgba(255,255,255,.6)">${f}</span></div>`).join('')}
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:24px;position:relative">
+          <span style="position:absolute;top:18px;right:20px;font-size:9px;font-weight:800;color:#0a0f1e;background:#ffd700;padding:3px 8px;border-radius:6px;letter-spacing:0.05em">POPULAR</span>
+          <h4 style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px">Pro</h4>
+          <div style="display:flex;align-items:baseline;gap:4px;margin:14px 0 4px"><span style="font-size:32px;font-weight:800;color:#fff">$9.99</span><span style="font-size:12px;color:rgba(255,255,255,.4)">/ month</span></div>
+          <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px">Unlock the full AI consensus</p>
+          ${state.isPro
+            ? `<div style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.15);color:#00c896;text-align:center;border:1px solid rgba(0,200,150,.3);margin-bottom:20px">✓ You're on Pro</div>`
+            : `<button onclick="state.pricingModal=false;startCheckout()" style="width:100%;padding:12px;border-radius:10px;font-size:14px;font-weight:700;background:#3d85ff;color:#fff;border:none;cursor:pointer;margin-bottom:20px">Upgrade to Pro</button>`
+          }
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${[
+              "Unlimited stock analyses",
+              "5 AI models — adds Perplexity &amp; Grok",
+              "Per-model reasoning — see why each AI landed where it did",
+              "X Sentiment social score"
+            ].map(f=>`<div style="display:flex;align-items:flex-start;gap:8px"><span style="color:#ffd700;font-size:13px;margin-top:1px">✓</span><span style="font-size:13px;color:rgba(255,255,255,.8)">${f}</span></div>`).join('')}
+          </div>
+        </div>
+      </div>
+    </div>`:""}
+
     ${state.authModal?`
     <div onclick="state.authModal=false;render()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60"></div>
     <div onclick="event.stopPropagation()" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;z-index:70;background:#141b2d;border-radius:20px;border:1px solid rgba(255,255,255,.08);padding:32px 28px">
@@ -910,7 +963,7 @@ function render(){
             <span style="font-size:12px;font-weight:600;color:${state.isPro ? '#00c896' : '#ff4757'}">${state.isPro ? 'Unlocked' : 'Pro only'}</span>
           </div>
         </div>
-        ${!state.isPro ? `<button onclick="startCheckout()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer;margin-bottom:10px">⚡ Upgrade to Pro — $9.99/mo</button>` : `<div style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.1);color:#00c896;border:1.5px solid rgba(0,200,150,.3);text-align:center;margin-bottom:10px">✓ You're on Pro</div>`}
+        ${!state.isPro ? `<button onclick="showPricingModal()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer;margin-bottom:10px">⚡ Upgrade to Pro — $9.99/mo</button>` : `<div style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.1);color:#00c896;border:1.5px solid rgba(0,200,150,.3);text-align:center;margin-bottom:10px">✓ You're on Pro</div>`}
         <button onclick="signOut();state.authModal=false;render()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08);cursor:pointer">Sign Out</button>
       ` : state.authMode==='verify' ? `
         <div style="text-align:center">
@@ -959,11 +1012,18 @@ async function handleAuth() {
       state.authModal = false;
       state.authEmail = '';
       state.authPassword = '';
+      await refreshProStatus();
+      render();
+      // Re-run analysis on current ticker so Pro features reflect immediately, not on next manual search
+      if (state.ticker) {
+        state.searchInput = state.ticker;
+        await analyzeStock();
+      }
     } else {
       await signUp(state.authEmail, state.authPassword);
       state.authMode = 'verify';
+      render();
     }
-    render();
   } catch(e) {
     if (e.message && e.message.toLowerCase().includes('email not confirmed')) {
       state.authError = 'Please verify your email first — check your inbox for the confirmation link.';
