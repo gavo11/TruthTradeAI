@@ -131,10 +131,14 @@ async function refreshProStatus() {
   }
 }
 
-// ── Watchlist (localStorage for now, will move to Supabase per-user later) ──
+// ── Watchlist (localStorage, keyed per signed-in user — no guest watchlist) ──
 function loadWatchlist() {
+  if (!currentUser) {
+    state.watchlist = [];
+    return;
+  }
   try {
-    const raw = localStorage.getItem('ttai_watchlist');
+    const raw = localStorage.getItem(`ttai_watchlist_${currentUser.id}`);
     state.watchlist = raw ? JSON.parse(raw) : [];
   } catch(e) {
     state.watchlist = [];
@@ -142,37 +146,44 @@ function loadWatchlist() {
 }
 
 function saveWatchlist() {
+  if (!currentUser) return;
   try {
-    localStorage.setItem('ttai_watchlist', JSON.stringify(state.watchlist));
+    localStorage.setItem(`ttai_watchlist_${currentUser.id}`, JSON.stringify(state.watchlist));
   } catch(e) {
     console.warn('Could not save watchlist:', e);
   }
 }
 
 function toggleWatchlist(ticker) {
-  console.log('toggleWatchlist called for', ticker, 'current list:', state.watchlist);
+  if (!currentUser) {
+    state.authModal = true;
+    state.authMode = 'login';
+    render();
+    return;
+  }
   const idx = state.watchlist.indexOf(ticker);
   if (idx === -1) {
     state.watchlist.push(ticker);
   } else {
     state.watchlist.splice(idx, 1);
   }
-  console.log('new list:', state.watchlist);
   saveWatchlist();
   render();
 }
 
 function isWatchlisted(ticker) {
-  return state.watchlist.includes(ticker);
+  return currentUser && state.watchlist.includes(ticker);
 }
 
 async function initAuth() {
   const { data: { session } } = await sbClient.auth.getSession();
   currentUser = session?.user ?? null;
+  loadWatchlist();
   if (currentUser) await refreshProStatus();
   render();
   sbClient.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session?.user ?? null;
+    loadWatchlist();
     if (currentUser) {
       await refreshProStatus();
     } else {
@@ -289,10 +300,8 @@ function mergeAIData(stock, ai) {
       industry:      ai.industry      || stock.industry,
       description:   ai.description   || stock.description,
       riskProfile:   ai.riskProfile   || stock.riskProfile || 5,
-      bullCatalysts: ai.bullCatalysts?.length ? ai.bullCatalysts : (best ? [best.topCatalyst].filter(Boolean) : stock.bullCatalysts),
-      bearRisks:     ai.bearRisks?.length     ? ai.bearRisks     : (best ? [best.topRisk].filter(Boolean)     : stock.bearRisks),
-      bullCaseDetailed: ai.bullCaseDetailed || stock.bullCaseDetailed || null,
-      bearCaseDetailed: ai.bearCaseDetailed || stock.bearCaseDetailed || null,
+      bullCatalysts: ai.bullCatalysts?.length ? ai.bullCatalysts : (best?.topCatalyst ? [{text: best.topCatalyst}] : stock.bullCatalysts),
+      bearRisks:     ai.bearRisks?.length     ? ai.bearRisks     : (best?.topRisk     ? [{text: best.topRisk}]     : stock.bearRisks),
       news:          ai.news?.length          ? ai.news          : (best?.news || stock.news || []),
       // Consensus from AI
       aiBull: consensus.bullScore ?? stock.aiBull,
@@ -429,7 +438,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#ffd700":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,watchlist:[],authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},isPro:false,expandedReasoning:{},expandedBullInfo:false,expandedBearInfo:false};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,watchlist:[],authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},isPro:false,expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null};
 
 function infoBtn(tooltipTitle, tooltipText) {
   const safeTitle = tooltipTitle.replace(/'/g, "&#39;");
@@ -537,6 +546,10 @@ async function analyzeStock() {
   state.ticker = ticker;
   state.loading = true;
   state.expandedReasoning = {};
+  state.expandedBullItems = {};
+  state.expandedBearItems = {};
+  state.expandedNewsItems = {};
+  state.usageError = null;
   render();
 
   // Safety timeout — never stay stuck loading more than 45 seconds
@@ -560,9 +573,22 @@ async function analyzeStock() {
       headers,
       body: JSON.stringify({ ticker })
     });
+
+    if (aiRes.status === 429) {
+      const errJson = await aiRes.json();
+      state.usageError = errJson.message || "You've used all your free analyses for today.";
+      state.usageRemaining = 0;
+      state.ticker = ''; // don't show a half-loaded result for a blocked request
+      clearTimeout(loadingTimeout);
+      state.loading = false;
+      render();
+      return;
+    }
+
     const aiJson = await aiRes.json();
     if (aiJson && !aiJson.error) {
       state.isPro = aiJson.isPro === true;
+      state.usageRemaining = aiJson.usageRemaining ?? state.usageRemaining;
       state.aiData[ticker] = aiJson;
       state.liveData[ticker] = {
         fromAI: true,
@@ -648,13 +674,29 @@ function render(){
             onkeydown="if(event.key==='Enter'){analyzeStock()}"/>
           <button onclick="analyzeStock()" style="margin:6px;padding:9px 16px;border-radius:8px;font-size:12px;font-weight:700;background:#3d85ff;color:#fff">Analyze</button>
         </div>
-        <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:10px">Multi-AI consensus analysis for smarter investing${!state.isPro ? ' · <span style="color:#ffd700">3 free analyses per day</span> — <span style="color:#3d85ff;cursor:pointer" onclick="showPricingModal()">Upgrade for unlimited</span>' : ''}</p>
+        <p style="font-size:12px;color:rgba(255,255,255,.3);margin-top:10px">Multi-AI consensus analysis for smarter investing${(()=>{
+          if (state.isPro) return '';
+          if (state.usageRemaining === null) {
+            return ' · <span style="color:#ffd700">3 free analyses per day</span> — <span style="color:#3d85ff;cursor:pointer" onclick="showPricingModal()">Upgrade for unlimited</span>';
+          }
+          const remainingColor = state.usageRemaining === 0 ? '#ff4757' : '#ffd700';
+          const remainingText = state.usageRemaining === 0
+            ? 'No free analyses left today'
+            : `${state.usageRemaining} ${state.usageRemaining === 1 ? 'analysis' : 'analyses'} left today`;
+          return ` · <span style="color:${remainingColor}">${remainingText}</span> <span style="color:rgba(255,255,255,.25)">(resets at 12:00 AM UTC)</span> — <span style="color:#3d85ff;cursor:pointer" onclick="showPricingModal()">Upgrade for unlimited</span>`;
+        })()}</p>
+        ${state.usageError ? `
+          <div style="max-width:500px;margin:14px auto 0;background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:10px;padding:14px 16px;text-align:center">
+            <p style="font-size:12px;color:#ff4757;line-height:1.6;margin-bottom:10px">${state.usageError}</p>
+            <button onclick="showPricingModal()" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">⚡ Upgrade to Pro</button>
+          </div>
+        ` : ''}
       </div>
 
       ${state.ticker ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
         <span style="font-size:24px;font-weight:900;color:#fff">${d.ticker}</span>
         <span style="font-size:14px;color:rgba(255,255,255,.4)">${d.companyName}</span>
-        <button onclick="toggleWatchlist('${d.ticker}')" title="${isWatchlisted(d.ticker)?'Remove from watchlist':'Add to watchlist'}" style="background:transparent;border:none;cursor:pointer;font-size:24px;padding:4px 6px;line-height:1;color:${isWatchlisted(d.ticker)?'#ffd700':'rgba(255,255,255,.4)'}">${isWatchlisted(d.ticker)?'★':'☆'}</button>
+        <button onclick="toggleWatchlist('${d.ticker}')" title="${!currentUser?'Log in to use watchlist':isWatchlisted(d.ticker)?'Remove from watchlist':'Add to watchlist'}" style="background:transparent;border:none;cursor:pointer;font-size:24px;padding:4px 6px;line-height:1;color:${!currentUser?'rgba(255,255,255,.2)':isWatchlisted(d.ticker)?'#ffd700':'rgba(255,255,255,.4)'}">${isWatchlisted(d.ticker)?'★':'☆'}</button>
         ${state.aiData[state.ticker] ? `<button id="share-btn" onclick="shareAnalysis()" style="padding:5px 12px;border-radius:8px;font-size:11px;font-weight:600;background:rgba(255,255,255,.06);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1);cursor:pointer;display:flex;align-items:center;gap:5px">📋 Copy Summary</button>` : ''}
         <span style="margin-left:auto;font-size:22px;font-weight:700;color:#fff">${state.loading ? '⏳ Loading...' : (d.currentPrice ? '$'+d.currentPrice : '')}</span>
       </div>` : ''}
@@ -927,27 +969,49 @@ function render(){
             <div>
               <p style="font-size:12px;color:rgba(255,255,255,.65);line-height:1.7;margin-bottom:14px">${d.bullCase}</p>
               <p style="font-size:10px;font-weight:700;color:rgba(0,200,150,.7);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Key Catalysts</p>
-              ${d.bullCatalysts.map(c=>{
+              ${d.bullCatalysts.map((c,i)=>{
                 const isObj = typeof c === 'object' && c !== null;
                 const text = isObj ? c.text : c;
                 const status = isObj ? c.status : null;
                 const date = isObj ? c.date : null;
-                const upcomingBadge = status==='upcoming' ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;color:#3d85ff;background:rgba(61,133,255,.15);flex-shrink:0;margin-top:3px">UPCOMING</span>` : '';
-                const priorBadge = status==='prior' ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;color:rgba(255,255,255,.35);background:rgba(255,255,255,.07);flex-shrink:0;margin-top:3px">PRIOR</span>` : '';
-                return`<div style="display:flex;gap:8px;margin-bottom:8px;align-items:flex-start"><div style="width:5px;height:5px;border-radius:50%;background:#00c896;flex-shrink:0;margin-top:6px"></div><div style="flex:1"><span style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">${text}</span>${date?`<span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:6px">${date}</span>`:''}</div>${upcomingBadge}${priorBadge}</div>`;
+                const detail = isObj ? c.detail : null;
+                const hasDetail = state.aiData[state.ticker] && detail;
+                const isExpanded = state.expandedBullItems[i];
+                const statusLabel = status==='upcoming' ? 'Upcoming' : status==='prior' ? 'Prior' : null;
+                const statusColor = status==='upcoming' ? '#3d85ff' : 'rgba(255,255,255,.35)';
+                const statusBg = status==='upcoming' ? 'rgba(61,133,255,.15)' : 'rgba(255,255,255,.07)';
+
+                const statusRow = statusLabel ? `<span style="font-size:9px;font-weight:700;padding:1px 6px;border-radius:4px;color:${statusColor};background:${statusBg}">${statusLabel.toUpperCase()}</span>` : '';
+
+                let toggleRow;
+                if (hasDetail && state.isPro) {
+                  toggleRow = `<button onclick="state.expandedBullItems[${i}]=!state.expandedBullItems[${i}];render()" style="background:rgba(0,200,150,.08);border:1px solid rgba(0,200,150,.25);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;margin-left:6px">
+                    <span style="font-size:10px;font-weight:700;color:#00c896">${isExpanded?'▲':'▼'} More info</span>
+                  </button>`;
+                } else if (hasDetail && !state.isPro) {
+                  toggleRow = `<button onclick="showPricingModal()" style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;margin-left:6px">
+                    <span style="font-size:10px;font-weight:700;color:rgba(255,215,0,.7)">🔒 More info</span>
+                  </button>`;
+                } else {
+                  toggleRow = '';
+                }
+
+                const expandedBlock = (isExpanded && hasDetail && state.isPro) ? `
+                  <div style="margin-left:13px;padding-left:10px;border-left:1px solid rgba(0,200,150,.2);margin-top:6px;margin-bottom:2px">
+                    <p style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6">— ${detail}</p>
+                  </div>` : '';
+
+                return`<div style="margin-bottom:8px">
+                  <div style="display:flex;gap:8px;align-items:flex-start">
+                    <div style="width:5px;height:5px;border-radius:50%;background:#00c896;flex-shrink:0;margin-top:6px"></div>
+                    <div style="flex:1">
+                      <span style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">${text}</span>${date?`<span style="font-size:10px;color:rgba(255,255,255,.3);margin-left:6px">${date}</span>`:''}${toggleRow}
+                    </div>
+                    ${statusRow}
+                  </div>
+                  ${expandedBlock}
+                </div>`;
               }).join('')}
-              ${state.aiData[state.ticker] ? (
-                state.isPro ? `
-                <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,200,150,.1)">
-                  <button onclick="state.expandedBullInfo=!state.expandedBullInfo;render()" style="width:100%;text-align:left;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:0">
-                    <span style="font-size:11px;font-weight:700;color:#00c896">${state.expandedBullInfo?'▲ Hide details':'▼ More info on catalysts above'}</span>
-                  </button>
-                  ${state.expandedBullInfo ? `<div style="margin-top:10px"><p style="font-size:11px;color:rgba(255,255,255,.55);line-height:1.7">${d.bullCaseDetailed || 'Detailed breakdown of the catalysts above loading — try re-running this analysis if this persists.'}</p></div>` : ''}
-                </div>` : `
-                <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(0,200,150,.1);text-align:center">
-                  <button onclick="showPricingModal()" style="font-size:11px;font-weight:700;color:rgba(255,215,0,.7);background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:20px;padding:4px 12px;cursor:pointer">🔒 More info · Pro</button>
-                </div>`
-              ) : ''}
             </div>
           </div>
         </div>
@@ -957,19 +1021,41 @@ function render(){
             <div>
               <p style="font-size:12px;color:rgba(255,255,255,.65);line-height:1.7;margin-bottom:14px">${d.bearCase}</p>
               <p style="font-size:10px;font-weight:700;color:rgba(255,71,87,.7);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Key Risks</p>
-              ${d.bearRisks.map(r=>`<div style="display:flex;gap:8px;margin-bottom:7px"><div style="width:5px;height:5px;border-radius:50%;background:#ff4757;flex-shrink:0;margin-top:5px"></div><span style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">${r}</span></div>`).join('')}
-              ${state.aiData[state.ticker] ? (
-                state.isPro ? `
-                <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,71,87,.1)">
-                  <button onclick="state.expandedBearInfo=!state.expandedBearInfo;render()" style="width:100%;text-align:left;background:transparent;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:0">
-                    <span style="font-size:11px;font-weight:700;color:#ff4757">${state.expandedBearInfo?'▲ Hide details':'▼ More info on risks above'}</span>
-                  </button>
-                  ${state.expandedBearInfo ? `<div style="margin-top:10px"><p style="font-size:11px;color:rgba(255,255,255,.55);line-height:1.7">${d.bearCaseDetailed || 'Detailed breakdown of the risks above loading — try re-running this analysis if this persists.'}</p></div>` : ''}
-                </div>` : `
-                <div style="margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,71,87,.1);text-align:center">
-                  <button onclick="showPricingModal()" style="font-size:11px;font-weight:700;color:rgba(255,215,0,.7);background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.2);border-radius:20px;padding:4px 12px;cursor:pointer">🔒 More info · Pro</button>
-                </div>`
-              ) : ''}
+              ${d.bearRisks.map((r,i)=>{
+                const isObj = typeof r === 'object' && r !== null;
+                const text = isObj ? r.text : r;
+                const detail = isObj ? r.detail : null;
+                const hasDetail = state.aiData[state.ticker] && detail;
+                const isExpanded = state.expandedBearItems[i];
+
+                let toggleRow;
+                if (hasDetail && state.isPro) {
+                  toggleRow = `<button onclick="state.expandedBearItems[${i}]=!state.expandedBearItems[${i}];render()" style="background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.25);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;margin-left:6px">
+                    <span style="font-size:10px;font-weight:700;color:#ff4757">${isExpanded?'▲':'▼'} More info</span>
+                  </button>`;
+                } else if (hasDetail && !state.isPro) {
+                  toggleRow = `<button onclick="showPricingModal()" style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;margin-left:6px">
+                    <span style="font-size:10px;font-weight:700;color:rgba(255,215,0,.7)">🔒 More info</span>
+                  </button>`;
+                } else {
+                  toggleRow = '';
+                }
+
+                const expandedBlock = (isExpanded && hasDetail && state.isPro) ? `
+                  <div style="margin-left:13px;padding-left:10px;border-left:1px solid rgba(255,71,87,.2);margin-top:6px;margin-bottom:2px">
+                    <p style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6">— ${detail}</p>
+                  </div>` : '';
+
+                return`<div style="margin-bottom:7px">
+                  <div style="display:flex;gap:8px;align-items:flex-start">
+                    <div style="width:5px;height:5px;border-radius:50%;background:#ff4757;flex-shrink:0;margin-top:5px"></div>
+                    <div style="flex:1">
+                      <span style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.5">${text}</span>${toggleRow}
+                    </div>
+                  </div>
+                  ${expandedBlock}
+                </div>`;
+              }).join('')}
             </div>
           </div>
         </div>
@@ -979,11 +1065,44 @@ function render(){
         <div class="card" style="padding:22px 24px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px"><span style="color:#3d85ff;font-size:16px">📅</span><h3 style="font-size:15px;font-weight:700;color:#fff">Upcoming Catalysts & News</h3></div>
           <div>
-            ${(d.news||[]).length === 0 ? '<p style="font-size:12px;color:rgba(255,255,255,.3);text-align:center;padding:16px">News will appear after AI analysis completes.</p>' : (d.news||[]).map(item=>{
+            ${(d.news||[]).length === 0 ? '<p style="font-size:12px;color:rgba(255,255,255,.3);text-align:center;padding:16px">News will appear after AI analysis completes.</p>' : (d.news||[]).map((item,i)=>{
               const t=tagStyle(item.tag);
               const showPrior = (item.tag==='EARNINGS'||item.tag==='EVENT') && item.date && new Date(item.date) < new Date();
               const priorBadge = showPrior ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.07);flex-shrink:0;height:fit-content;margin-top:2px">PRIOR</span>` : '';
-              return`<div style="display:flex;gap:8px;padding:10px 12px;border-radius:10px;margin-bottom:6px;border:1px solid rgba(255,255,255,.04)"><span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;color:${t.c};background:${t.bg};flex-shrink:0;height:fit-content;margin-top:2px">${item.tag}</span>${priorBadge}<div style="flex:1"><p style="font-size:12px;color:rgba(255,255,255,.8);font-weight:500;line-height:1.5">${item.title}</p><p style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px">${item.date}</p></div>${item.ai?`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;color:#3d85ff;background:rgba(61,133,255,.12);flex-shrink:0;height:fit-content">AI</span>`:""}</div>`;
+
+              const detail = item.detail;
+              const hasDetail = state.aiData[state.ticker] && detail;
+              const isExpanded = state.expandedNewsItems[i];
+
+              let toggleRow;
+              if (hasDetail && state.isPro) {
+                toggleRow = `<button onclick="state.expandedNewsItems[${i}]=!state.expandedNewsItems[${i}];render()" style="background:rgba(61,133,255,.08);border:1px solid rgba(61,133,255,.25);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;margin-left:6px">
+                  <span style="font-size:10px;font-weight:700;color:#3d85ff">${isExpanded?'▲':'▼'} More info</span>
+                </button>`;
+              } else if (hasDetail && !state.isPro) {
+                toggleRow = `<button onclick="showPricingModal()" style="background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:6px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:2px 8px;margin-left:6px">
+                  <span style="font-size:10px;font-weight:700;color:rgba(255,215,0,.7)">🔒 More info</span>
+                </button>`;
+              } else {
+                toggleRow = '';
+              }
+
+              const expandedBlock = (isExpanded && hasDetail && state.isPro) ? `
+                <div style="margin-left:4px;padding-left:10px;border-left:1px solid rgba(61,133,255,.2);margin-top:6px">
+                  <p style="font-size:11px;color:rgba(255,255,255,.5);line-height:1.6">— ${detail}</p>
+                </div>` : '';
+
+              return`<div style="padding:10px 12px;border-radius:10px;margin-bottom:6px;border:1px solid rgba(255,255,255,.04)">
+                <div style="display:flex;gap:8px">
+                  <span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;color:${t.c};background:${t.bg};flex-shrink:0;height:fit-content;margin-top:2px">${item.tag}</span>${priorBadge}
+                  <div style="flex:1">
+                    <p style="font-size:12px;color:rgba(255,255,255,.8);font-weight:500;line-height:1.5">${item.title}${toggleRow}</p>
+                    <p style="font-size:10px;color:rgba(255,255,255,.3);margin-top:3px">${item.date}</p>
+                  </div>
+                  ${item.ai?`<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;color:#3d85ff;background:rgba(61,133,255,.12);flex-shrink:0;height:fit-content">AI</span>`:""}
+                </div>
+                ${expandedBlock}
+              </div>`;
             }).join('')}
           </div>
         </div>
@@ -1009,7 +1128,13 @@ function render(){
         <button onclick="state.watchlistOpen=false;render()" style="background:transparent;color:rgba(255,255,255,.4);font-size:18px;border:none;cursor:pointer">×</button>
       </div>
       <div style="flex:1;overflow-y:auto;padding:12px">
-        ${state.watchlist.length === 0 ? `
+        ${!currentUser ? `
+          <div style="text-align:center;padding:40px 16px">
+            <div style="font-size:32px;margin-bottom:12px">🔒</div>
+            <p style="font-size:12px;color:rgba(255,255,255,.4);line-height:1.6;margin-bottom:16px">Log in to use your watchlist.</p>
+            <button onclick="state.watchlistOpen=false;state.authModal=true;state.authMode='login';render()" style="padding:8px 18px;border-radius:10px;font-size:12px;font-weight:700;background:#3d85ff;color:#fff;border:none;cursor:pointer">Log In</button>
+          </div>
+        ` : state.watchlist.length === 0 ? `
           <div style="text-align:center;padding:40px 16px">
             <div style="font-size:32px;margin-bottom:12px">☆</div>
             <p style="font-size:12px;color:rgba(255,255,255,.4);line-height:1.6">Star a stock from any analysis to add it here for quick access.</p>
@@ -1131,7 +1256,6 @@ function render(){
     </div>`:""}
   </div>`;
 }
-loadWatchlist();
 render();
 initAuth();
 
