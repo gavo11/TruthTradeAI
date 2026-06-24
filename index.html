@@ -568,13 +568,12 @@ async function analyzeStock() {
   }, 45000);
 
   try {
-    // Build headers — include auth token if logged in
+    // Build headers — always check the real session directly (not the currentUser variable,
+    // which can still be null on page load even if a session exists, due to async init timing)
     const headers = { 'Content-Type': 'application/json' };
-    if (currentUser) {
-      const { data: { session } } = await sbClient.auth.getSession();
-      if (session?.access_token) {
-        headers['Authorization'] = `Bearer ${session.access_token}`;
-      }
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`;
     }
 
     const aiRes = await fetch(`${BACKEND}/api/analyze`, {
