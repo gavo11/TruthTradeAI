@@ -101,9 +101,18 @@
     <p>These Terms are governed by the laws of the United States and the State of Virginia, without regard to conflict of law principles, unless otherwise required by applicable law in your jurisdiction.</p>
 
     <h2>13. Contact</h2>
-    <p>Questions about these Terms can be directed to <a href="mailto:truetradeaisupport@gmail.com">truetradeaisupport@gmail.com</a>.</p>
+    <p>Questions about these Terms can be directed to <span onclick="copyEmail(this)" style="color:#3d85ff;cursor:pointer;text-decoration:underline" title="Click to copy">truetradeaisupport@gmail.com</span>.</p>
 
     <a class="back-link" href="index.html">← Back to TrueTradeAI</a>
   </div>
+  <script>
+    function copyEmail(el) {
+      navigator.clipboard.writeText('truetradeaisupport@gmail.com').then(() => {
+        const original = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => { el.textContent = original; }, 1800);
+      });
+    }
+  </script>
 </body>
 </html>
