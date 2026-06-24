@@ -91,10 +91,11 @@ function showCopyToast(message) {
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'copy-toast';
-    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#141b2d;border:1px solid rgba(61,133,255,.4);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:90vw;text-align:center;font-family:Inter,system-ui,sans-serif;transition:opacity .3s';
+    toast.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#141b2d;border:1px solid rgba(61,133,255,.4);color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:99999;box-shadow:0 8px 32px rgba(0,0,0,.5);max-width:90vw;text-align:center;font-family:Inter,system-ui,sans-serif;transition:opacity .3s;pointer-events:none;opacity:0';
     document.body.appendChild(toast);
   }
   toast.textContent = message;
+  toast.style.pointerEvents = 'none'; // never intercept clicks, even while visible
   toast.style.opacity = '1';
   clearTimeout(toast._hideTimer);
   toast._hideTimer = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
