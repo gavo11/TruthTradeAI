@@ -41,18 +41,27 @@
     <div class="contact-card">
       <div class="icon">✉️</div>
       <h3>Email Support</h3>
-      <p>For account, billing, feedback, or general questions</p>
-      <a class="contact-btn" href="mailto:truetradeaisupport@gmail.com">truetradeaisupport@gmail.com</a>
+      <p>For account, billing, feedback, or general questions. Tap to copy the address.</p>
+      <button class="contact-btn" onclick="copyEmail(this)" style="border:none;cursor:pointer">truetradeaisupport@gmail.com</button>
     </div>
 
     <div class="contact-card">
       <div class="icon">🐛</div>
       <h3>Found a Bug?</h3>
-      <p>Use the "Report a Bug" link in the footer of the app — it auto-includes helpful context like the ticker you were viewing.</p>
+      <p>Use the "Report a Bug" link in the footer of the app — it copies our email plus helpful context like the ticker you were viewing, ready to paste.</p>
       <a class="contact-btn" href="index.html">Back to App</a>
     </div>
 
     <a class="back-link" href="index.html">← Back to TrueTradeAI</a>
   </div>
+  <script>
+    function copyEmail(el) {
+      navigator.clipboard.writeText('truetradeaisupport@gmail.com').then(() => {
+        const original = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => { el.textContent = original; }, 1800);
+      });
+    }
+  </script>
 </body>
 </html>
