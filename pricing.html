@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Pricing - TrueTradeAI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0a0f1e; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: #141b2d; }
+  ::-webkit-scrollbar-thumb { background: #1f2840; border-radius: 3px; }
+  a { color: #3d85ff; text-decoration: none; }
+  .container { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; }
+  .logo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+  .logo-circle { width: 36px; height: 36px; border-radius: 10px; background: #3d85ff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; color: #fff; }
+  .logo-text { font-size: 18px; font-weight: 800; }
+  .logo-text .true { color: #fff; }
+  .logo-text .trade { color: #3d85ff; }
+  .logo-text .ai { color: #fff; }
+  h1 { font-size: 30px; font-weight: 800; text-align: center; margin-bottom: 10px; }
+  .subhead { font-size: 14px; color: rgba(255,255,255,.45); text-align: center; margin-bottom: 36px; }
+  .plans { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 600px) { .plans { grid-template-columns: 1fr; } }
+  .plan-card { background: #141b2d; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 28px; }
+  .plan-card.pro { background: linear-gradient(135deg, rgba(61,133,255,.1), rgba(255,215,0,.06)); border: 1.5px solid rgba(255,215,0,.4); position: relative; }
+  .popular-badge { position: absolute; top: 20px; right: 22px; font-size: 9px; font-weight: 800; color: #0a0f1e; background: #ffd700; padding: 3px 8px; border-radius: 6px; letter-spacing: .05em; }
+  .plan-name { font-size: 19px; font-weight: 800; margin-bottom: 6px; }
+  .plan-price { display: flex; align-items: baseline; gap: 4px; margin: 16px 0 6px; }
+  .plan-price .amount { font-size: 36px; font-weight: 800; }
+  .plan-price .period { font-size: 13px; color: rgba(255,255,255,.4); }
+  .plan-tagline { font-size: 12px; color: rgba(255,255,255,.45); margin-bottom: 22px; }
+  .plan-cta { display: block; text-align: center; width: 100%; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; margin-bottom: 22px; text-decoration: none; }
+  .plan-cta.free { background: rgba(255,255,255,.04); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.08); }
+  .plan-cta.pro { background: #3d85ff; color: #fff; }
+  .feature { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 13px; }
+  .feature .check { font-size: 13px; margin-top: 1px; }
+  .feature.free .check { color: rgba(255,255,255,.3); }
+  .feature.pro .check { color: #ffd700; }
+  .feature span.text { font-size: 13px; color: rgba(255,255,255,.7); line-height: 1.5; }
+  .footnote { font-size: 11px; color: rgba(255,255,255,.3); text-align: center; margin-top: 32px; line-height: 1.7; }
+  .back-link { display: block; text-align: center; margin-top: 32px; font-size: 13px; color: rgba(255,255,255,.4); }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-row">
+      <div class="logo-circle">TT</div>
+      <div class="logo-text"><span class="true">True</span><span class="trade">Trade</span><span class="ai">AI</span></div>
+    </div>
+
+    <h1>Simple, transparent pricing</h1>
+    <p class="subhead">Start free. Upgrade when you want the full picture.</p>
+
+    <div class="plans">
+      <div class="plan-card">
+        <div class="plan-name">Free</div>
+        <div class="plan-price"><span class="amount">$0</span><span class="period">/ month</span></div>
+        <div class="plan-tagline">See what AI consensus looks like</div>
+        <a class="plan-cta free" href="index.html">Get Started</a>
+        <div class="feature free"><span class="check">✓</span><span class="text">3 stock analyses per day</span></div>
+        <div class="feature free"><span class="check">✓</span><span class="text">3 AI models — Claude, GPT-4o, Gemini</span></div>
+        <div class="feature free"><span class="check">✓</span><span class="text">X Sentiment social score</span></div>
+      </div>
+
+      <div class="plan-card pro">
+        <span class="popular-badge">POPULAR</span>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price"><span class="amount">$9.99</span><span class="period">/ month</span></div>
+        <div class="plan-tagline">Unlock the full AI consensus</div>
+        <a class="plan-cta pro" href="index.html">Upgrade to Pro</a>
+        <div class="feature pro"><span class="check">✓</span><span class="text">Unlimited stock analyses</span></div>
+        <div class="feature pro"><span class="check">✓</span><span class="text">5 AI models — adds Perplexity &amp; Grok</span></div>
+        <div class="feature pro"><span class="check">✓</span><span class="text">Per-model reasoning — see why each AI landed where it did</span></div>
+        <div class="feature pro"><span class="check">✓</span><span class="text">Detailed breakdowns on every catalyst, risk, and news item</span></div>
+        <div class="feature pro"><span class="check">✓</span><span class="text">X Sentiment social score</span></div>
+      </div>
+    </div>
+
+    <p class="footnote">Cancel anytime. Billed monthly via Stripe. TrueTradeAI is for informational purposes only and does not constitute financial advice.</p>
+
+    <a class="back-link" href="index.html">← Back to TrueTradeAI</a>
+  </div>
+</body>
+</html>
