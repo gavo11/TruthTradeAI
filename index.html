@@ -74,6 +74,15 @@ function showPricingModal() {
   render();
 }
 
+function reportBug() {
+  const subject = 'Bug Report - TrueTradeAI';
+  const tickerLine = state.ticker ? `Ticker: ${state.ticker}` : 'Ticker: (none loaded)';
+  const accountLine = `Account: ${currentUser ? (state.isPro ? 'Pro' : 'Free, signed in') : 'Not signed in'}`;
+  const body = `Please describe the issue:\n\n\n---\nContext (auto-filled, edit or delete as needed):\n${tickerLine}\n${accountLine}`;
+  const mailto = `mailto:truetradeaisupport@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+}
+
 async function startCheckout() {
   if (!currentUser) {
     // Need to sign in before paying — remember to resume checkout after, prompt sign-in
@@ -1115,7 +1124,14 @@ function render(){
     <footer style="border-top:1px solid rgba(255,255,255,.05);background:#0a0f1e;padding:24px 16px">
       <div style="max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center">
         <div style="display:flex;align-items:center;gap:8px"><div style="width:30px;height:30px;border-radius:50%;background:#3d85ff;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900">TT</div><span style="font-weight:700;color:#fff;font-size:14px">TrueTradeAI</span></div>
-        <div style="display:flex;gap:20px">${["About","Pricing","Contact"].map(l=>`<a href="#" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">${l}</a>`).join('')}</div>
+        <div style="display:flex;gap:18px;flex-wrap:wrap">
+          <a href="about.html" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">About</a>
+          <a href="pricing.html" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">Pricing</a>
+          <a href="contact.html" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">Contact</a>
+          <a href="terms.html" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">Terms</a>
+          <a href="privacy.html" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">Privacy</a>
+          <a href="javascript:void(0)" onclick="reportBug()" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">Report a Bug</a>
+        </div>
         <p style="font-size:10px;color:rgba(255,255,255,.2);max-width:260px;line-height:1.6">TrueTradeAI is for informational purposes only and does not constitute financial advice.</p>
       </div>
     </footer>
