@@ -54,11 +54,20 @@
 
     <p>TrueTradeAI is built and run independently. We're not a registered investment advisor or a financial institution — just builders who think AI-assisted research should be transparent about its own uncertainty.</p>
 
-    <p>Questions, feedback, or just want to say hi? Reach us at <a href="mailto:truetradeaisupport@gmail.com">truetradeaisupport@gmail.com</a>.</p>
+    <p>Questions, feedback, or just want to say hi? Reach us at <span onclick="copyEmail(this)" style="color:#3d85ff;cursor:pointer;text-decoration:underline" title="Click to copy">truetradeaisupport@gmail.com</span>.</p>
 
     <p class="disclaimer">TrueTradeAI is for informational purposes only and does not constitute financial advice. See our <a href="terms.html">Terms of Service</a> for details.</p>
 
     <a class="back-link" href="index.html">← Back to TrueTradeAI</a>
   </div>
+  <script>
+    function copyEmail(el) {
+      navigator.clipboard.writeText('truetradeaisupport@gmail.com').then(() => {
+        const original = el.textContent;
+        el.textContent = 'Copied!';
+        setTimeout(() => { el.textContent = original; }, 1800);
+      });
+    }
+  </script>
 </body>
 </html>
