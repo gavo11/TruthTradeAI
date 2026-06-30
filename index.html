@@ -151,6 +151,7 @@ let currentUser = null;
 function showPricingModal() {
   state.authModal = false;
   state.pricingModal = true;
+  state.pricingNote = '';
   render();
 }
 
@@ -238,59 +239,127 @@ async function refreshProStatus() {
   }
 }
 
-// ── Watchlist (localStorage, keyed per signed-in user — no guest watchlist) ──
-function loadWatchlist() {
-  if (!currentUser) {
-    state.watchlist = [];
-    return;
-  }
+// ── Watchlist / saved analyses (server-backed via /api/saved-analyses) ──────
+async function authHeaders() {
+  const { data: { session } } = await sbClient.auth.getSession();
+  const h = { 'Content-Type': 'application/json' };
+  if (session?.access_token) h['Authorization'] = `Bearer ${session.access_token}`;
+  return h;
+}
+
+// Rebuild the liveData object the renderer expects from a stored analysis JSON.
+function liveDataFromAI(aiJson) {
+  return {
+    fromAI: true,
+    currentPrice: aiJson.currentPrice, companyName: aiJson.companyName, peRatio: aiJson.peRatio,
+    marketCap: aiJson.marketCap, week52Low: aiJson.week52Low, week52High: aiJson.week52High,
+    earningsDate: aiJson.earningsDate, analystPriceTarget: aiJson.analystPriceTarget, dividendYield: aiJson.dividendYield,
+    analystBuy: aiJson.analystBuy, analystHold: aiJson.analystHold, analystSell: aiJson.analystSell,
+    stockSentimentScore: aiJson.stockSentimentScore, sectorSentimentScore: aiJson.sectorSentimentScore,
+    entrySignal: aiJson.entrySignal, sentimentAnalysis: aiJson.sentimentAnalysis
+  };
+}
+
+async function loadSavedAnalyses() {
+  if (!currentUser) { state.savedAnalyses = []; return; }
   try {
-    const raw = localStorage.getItem(`ttai_watchlist_${currentUser.id}`);
-    state.watchlist = raw ? JSON.parse(raw) : [];
-  } catch(e) {
-    state.watchlist = [];
+    const res = await fetch(`${BACKEND}/api/saved-analyses`, { headers: await authHeaders() });
+    const json = await res.json();
+    state.savedAnalyses = Array.isArray(json.savedAnalyses) ? json.savedAnalyses : [];
+  } catch (e) {
+    console.warn('Could not load saved analyses:', e);
+    state.savedAnalyses = [];
   }
 }
 
-function saveWatchlist() {
-  if (!currentUser) return;
-  try {
-    localStorage.setItem(`ttai_watchlist_${currentUser.id}`, JSON.stringify(state.watchlist));
-  } catch(e) {
-    console.warn('Could not save watchlist:', e);
-  }
-}
-
-function toggleWatchlist(ticker) {
-  if (!currentUser) {
-    state.authModal = true;
-    state.authMode = 'login';
-    render();
-    return;
-  }
-  const idx = state.watchlist.indexOf(ticker);
-  if (idx === -1) {
-    state.watchlist.push(ticker);
-  } else {
-    state.watchlist.splice(idx, 1);
-  }
-  saveWatchlist();
+function showSaveCapModal() {
+  state.pricingNote = 'Free accounts can save up to 2 analyses. Upgrade to Pro for unlimited.';
+  state.watchlistOpen = false;
+  state.pricingModal = true;
   render();
 }
 
-function isWatchlisted(ticker) {
-  return currentUser && state.watchlist.includes(ticker);
+async function saveCurrentAnalysis() {
+  if (!currentUser) { state.authModal = true; state.authMode = 'login'; render(); return; }
+  const ticker = state.ticker;
+  const ai = state.aiData[ticker];
+  if (!ticker || !ai) return;
+  const already = state.savedAnalyses.some(s => s.ticker === ticker);
+  // Proactive free-tier cap — block a NEW ticker beyond the limit (overwrite is always fine)
+  if (!already && !state.isPro && state.savedAnalyses.length >= 2) { showSaveCapModal(); return; }
+  state.savingAnalysis = true; render();
+  try {
+    const res = await fetch(`${BACKEND}/api/save-analysis`, {
+      method: 'POST', headers: await authHeaders(),
+      body: JSON.stringify({ ticker, analysis_data: ai })
+    });
+    if (res.status === 403) {
+      const j = await res.json().catch(() => ({}));
+      if (j.error === 'free_limit_reached') { state.savingAnalysis = false; showSaveCapModal(); return; }
+    }
+    if (!res.ok) throw new Error('save failed');
+    await loadSavedAnalyses();
+    state.viewingSavedDate = null; // this is now the live/fresh snapshot
+    showCopyToast(already ? `Updated ${ticker} in your watchlist` : `Saved ${ticker} to your watchlist`);
+  } catch (e) {
+    console.warn('Save failed:', e);
+    showCopyToast('Could not save right now. Please try again.');
+  }
+  state.savingAnalysis = false; render();
+}
+
+async function deleteSavedAnalysis(ticker) {
+  try {
+    const res = await fetch(`${BACKEND}/api/saved-analysis/${encodeURIComponent(ticker)}`, {
+      method: 'DELETE', headers: await authHeaders()
+    });
+    if (!res.ok) throw new Error('delete failed');
+    state.savedAnalyses = state.savedAnalyses.filter(s => s.ticker !== ticker);
+    render();
+  } catch (e) {
+    console.warn('Delete failed:', e);
+    showCopyToast('Could not remove right now. Please try again.');
+  }
+}
+
+// Open a saved snapshot from state (no re-fetch); marks it as a saved view.
+function openSavedAnalysis(ticker) {
+  const entry = state.savedAnalyses.find(s => s.ticker === ticker);
+  if (!entry || !entry.analysis_data) return;
+  const ai = entry.analysis_data;
+  state.ticker = ticker;
+  state.searchInput = ticker;
+  state.aiData[ticker] = ai;
+  state.liveData[ticker] = liveDataFromAI(ai);
+  state.viewingSavedDate = entry.updated_at || entry.created_at || null;
+  state.expandedReasoning = {}; state.expandedBullItems = {}; state.expandedBearItems = {}; state.expandedNewsItems = {};
+  state.loading = false; state.watchlistOpen = false; state.usageError = null;
+  window.scrollTo(0, 0);
+  render();
+}
+
+// Re-run a fresh analysis on the current ticker and overwrite the saved snapshot.
+async function reanalyzeCurrent() {
+  if (!state.ticker) return;
+  const ticker = state.ticker;
+  const wasSaved = state.savedAnalyses.some(s => s.ticker === ticker);
+  state.viewingSavedDate = null;
+  state.searchInput = ticker;
+  await analyzeStock();
+  if (currentUser && wasSaved && state.aiData[ticker]) {
+    await saveCurrentAnalysis();
+  }
 }
 
 async function initAuth() {
   const { data: { session } } = await sbClient.auth.getSession();
   currentUser = session?.user ?? null;
-  loadWatchlist();
+  await loadSavedAnalyses();
   if (currentUser) await refreshProStatus();
   render();
   sbClient.auth.onAuthStateChange(async (_event, session) => {
     currentUser = session?.user ?? null;
-    loadWatchlist();
+    await loadSavedAnalyses();
     if (currentUser) {
       await refreshProStatus();
     } else {
@@ -545,7 +614,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#ffd700":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,watchlist:[],authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},isPro:false,expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},isPro:false,expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null};
 
 function infoBtn(tooltipTitle, tooltipText) {
   const safeTitle = tooltipTitle.replace(/'/g, "&#39;");
@@ -618,42 +687,10 @@ function momentumSVG(score){
   </svg>`;
 }
 
-function shareAnalysis() {
-  const d = getStock(state.ticker);
-  const ai = state.aiData[state.ticker];
-  if (!ai) return;
-  const tfBase = state.aiTf === '1W' && ai?.bullScore1W != null ? ai.bullScore1W
-               : state.aiTf === '1M' && ai?.bullScore1M != null ? ai.bullScore1M
-               : state.aiTf === '1Y' && ai?.bullScore1Y != null ? ai.bullScore1Y
-               : d.aiBull || 50;
-  const consensus = getConsensus(tfBase, d.riskProfile, state.risk);
-  const verdict = getVerdict(consensus.score);
-  const models = ai.models || [];
-  const modelLines = models.filter(m => !m.error).map(m => `  ${m.model}: ${m.bullScore}%`).join('\n');
-
-  const text = `${d.ticker} (${d.companyName}) — TrueTradeAI Consensus
-
-Verdict: ${verdict.text} (${consensus.score}% confident)
-Bull ${consensus.bull}% / Bear ${consensus.bear}%
-
-Model breakdown:
-${modelLines}
-
-Bull case: ${d.bullCase}
-Bear case: ${d.bearCase}
-
-Generated at truetradeai.com — not financial advice.`;
-
-  navigator.clipboard.writeText(text).then(() => {
-    const btn = document.getElementById('share-btn');
-    if (btn) {
-      const original = btn.textContent;
-      btn.textContent = '✓ Copied!';
-      setTimeout(() => { btn.textContent = original; }, 2000);
-    }
-  }).catch(() => {
-    alert('Could not copy to clipboard. Please try again.');
-  });
+function fmtSavedDate(iso) {
+  if (!iso) return '';
+  try { return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); }
+  catch { return ''; }
 }
 
 function proOverlay(){
@@ -669,6 +706,7 @@ async function analyzeStock() {
   if (!ticker) return;
   state.ticker = ticker;
   state.loading = true;
+  state.viewingSavedDate = null;
   state.expandedReasoning = {};
   state.expandedBullItems = {};
   state.expandedBearItems = {};
@@ -713,25 +751,7 @@ async function analyzeStock() {
       state.isPro = aiJson.isPro === true;
       state.usageRemaining = aiJson.usageRemaining ?? state.usageRemaining;
       state.aiData[ticker] = aiJson;
-      state.liveData[ticker] = {
-        fromAI: true,
-        currentPrice:         aiJson.currentPrice,
-        companyName:          aiJson.companyName,
-        peRatio:              aiJson.peRatio,
-        marketCap:            aiJson.marketCap,
-        week52Low:            aiJson.week52Low,
-        week52High:           aiJson.week52High,
-        earningsDate:         aiJson.earningsDate,
-        analystPriceTarget:   aiJson.analystPriceTarget,
-        dividendYield:        aiJson.dividendYield,
-        analystBuy:           aiJson.analystBuy,
-        analystHold:          aiJson.analystHold,
-        analystSell:          aiJson.analystSell,
-        stockSentimentScore:  aiJson.stockSentimentScore,
-        sectorSentimentScore: aiJson.sectorSentimentScore,
-        entrySignal:          aiJson.entrySignal,
-        sentimentAnalysis:    aiJson.sentimentAnalysis,
-      };
+      state.liveData[ticker] = liveDataFromAI(aiJson);
     }
   } catch(e) {
     console.warn('AI analysis failed:', e);
@@ -771,7 +791,7 @@ function render(){
         <div class="nav-actions" style="display:flex;align-items:center;gap:9px">
           <button onclick="state.watchlistOpen=true;render()" class="nav-btn" style="position:relative;padding:8px 14px;border-radius:10px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer;display:flex;align-items:center;gap:7px">
             <span style="color:#ffd700;font-size:13px">★</span><span class="wl-label">Watchlist</span>
-            ${state.watchlist.length > 0 ? `<span style="position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#4a90ff,#2f6fe0);color:#fff;font-size:9px;font-weight:700;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(61,133,255,.5)">${state.watchlist.length}</span>` : ''}
+            ${state.savedAnalyses.length > 0 ? `<span style="position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#4a90ff,#2f6fe0);color:#fff;font-size:9px;font-weight:700;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(61,133,255,.5)">${state.savedAnalyses.length}</span>` : ''}
           </button>
           ${!state.isPro ? `<button onclick="showPricingModal()" class="btn-gold" style="padding:8px 15px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Upgrade</button>` : ''}
           ${currentUser
@@ -819,8 +839,10 @@ function render(){
       ${state.ticker ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
         <span class="tnum" style="font-size:27px;font-weight:900;color:#fff;letter-spacing:-.01em">${d.ticker}</span>
         <span style="font-size:14px;color:rgba(255,255,255,.45);font-weight:500">${d.companyName}</span>
-        <button onclick="toggleWatchlist('${d.ticker}')" title="${!currentUser?'Log in to use watchlist':isWatchlisted(d.ticker)?'Remove from watchlist':'Add to watchlist'}" style="background:transparent;border:none;cursor:pointer;font-size:23px;padding:2px 4px;line-height:1;color:${!currentUser?'rgba(255,255,255,.2)':isWatchlisted(d.ticker)?'#ffd700':'rgba(255,255,255,.4)'}">${isWatchlisted(d.ticker)?'★':'☆'}</button>
-        ${state.aiData[state.ticker] ? `<button id="share-btn" onclick="shareAnalysis()" class="nav-btn" style="padding:7px 13px;border-radius:9px;font-size:11.5px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.65);border:1px solid rgba(255,255,255,.1);cursor:pointer;display:inline-flex;align-items:center;gap:6px">Copy Summary</button>` : ''}
+        ${state.aiData[state.ticker] && !state.loading ? (state.viewingSavedDate
+          ? `<span style="font-size:11px;color:rgba(255,255,255,.45);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:5px 10px;border-radius:8px">Saved · ${fmtSavedDate(state.viewingSavedDate)}</span><button onclick="reanalyzeCurrent()" class="btn-primary" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer">↻ Re-analyze</button>`
+          : (()=>{ const saved = state.savedAnalyses.some(s=>s.ticker===d.ticker); return `<button onclick="saveCurrentAnalysis()" class="nav-btn" style="padding:7px 13px;border-radius:9px;font-size:11.5px;font-weight:600;background:${saved?'rgba(0,200,150,.12)':'rgba(255,255,255,.05)'};color:${saved?'#00c896':'rgba(255,255,255,.75)'};border:1px solid ${saved?'rgba(0,200,150,.3)':'rgba(255,255,255,.1)'};cursor:pointer;display:inline-flex;align-items:center;gap:6px">${state.savingAnalysis?'Saving…':(saved?'✓ Saved · Update':'☆ Save to Watchlist')}</button>`; })()
+        ) : ''}
         <span class="tnum" style="margin-left:auto;font-size:24px;font-weight:800;color:#fff;letter-spacing:-.01em">${state.loading ? '<span style="font-size:13px;font-weight:600;color:rgba(255,255,255,.45)">Loading…</span>' : (d.currentPrice ? '$'+d.currentPrice : '')}</span>
       </div>` : ''}
 
@@ -1262,22 +1284,29 @@ function render(){
         ${!currentUser ? `
           <div style="text-align:center;padding:44px 20px">
             <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-            <p style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:16px">Log in to use your watchlist.</p>
+            <p style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:16px">Log in to save analyses to your watchlist.</p>
             <button onclick="state.watchlistOpen=false;state.authModal=true;state.authMode='login';render()" class="btn-primary" style="padding:9px 20px;border-radius:10px;font-size:12.5px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(61,133,255,.35)">Log In</button>
           </div>
-        ` : state.watchlist.length === 0 ? `
-          <div style="text-align:center;padding:44px 20px">
-            <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
-            <p style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6">Star a stock from any analysis to add it here for quick access.</p>
-          </div>
-        ` : state.watchlist.map(t => `
-          <div class="wl-item" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:11px;background:rgba(255,255,255,.03);margin-bottom:8px;border:1px solid rgba(255,255,255,.06)">
-            <button onclick="state.watchlistOpen=false;state.searchInput='${t}';analyzeStock()" style="background:transparent;border:none;cursor:pointer;text-align:left;flex:1">
-              <span class="tnum" style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em">${t}</span>
-            </button>
-            <button onclick="toggleWatchlist('${t}')" title="Remove from watchlist" style="background:transparent;border:none;cursor:pointer;font-size:18px;color:#ffd700;line-height:1">★</button>
-          </div>
-        `).join('')}
+        ` : `
+          ${!state.isPro ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;margin-bottom:10px;border-radius:10px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18)">
+            <span class="tnum" style="font-size:11px;font-weight:700;color:#ffd700">${state.savedAnalyses.length}/2 saved</span>
+            <span onclick="state.watchlistOpen=false;showPricingModal()" style="font-size:10.5px;color:rgba(255,255,255,.5);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)">Upgrade for unlimited</span>
+          </div>` : ''}
+          ${state.savedAnalyses.length === 0 ? `
+            <div style="text-align:center;padding:36px 20px">
+              <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
+              <p style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6">Run an analysis and tap <strong style="color:#fff;font-weight:700">Save to Watchlist</strong> to keep it here.</p>
+            </div>
+          ` : state.savedAnalyses.map(s => `
+            <div class="wl-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border-radius:11px;background:rgba(255,255,255,.03);margin-bottom:8px;border:1px solid rgba(255,255,255,.06)">
+              <button onclick="openSavedAnalysis('${s.ticker}')" style="background:transparent;border:none;cursor:pointer;text-align:left;flex:1;min-width:0">
+                <div class="tnum" style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em">${s.ticker}</div>
+                <div style="font-size:10.5px;color:rgba(255,255,255,.4);margin-top:2px">Last analyzed: ${fmtSavedDate(s.updated_at || s.created_at)}</div>
+              </button>
+              <button onclick="deleteSavedAnalysis('${s.ticker}')" title="Remove from watchlist" style="background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,.35);padding:6px;border-radius:8px;line-height:0;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
+            </div>
+          `).join('')}
+        `}
       </div>
     </div>` : ''}
 
@@ -1288,6 +1317,7 @@ function render(){
         <h3 style="font-size:20px;font-weight:800;color:#fff">Upgrade your plan</h3>
         <button onclick="state.pricingModal=false;render()" style="background:transparent;color:rgba(255,255,255,.4);font-size:20px;border:none;cursor:pointer">×</button>
       </div>
+      ${state.pricingNote ? `<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:11px 14px;margin-bottom:18px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span style="font-size:12.5px;color:#ffd700;font-weight:600;line-height:1.5">${state.pricingNote}</span></div>` : ''}
       <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
         <div style="background:#0d1426;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px">
           <h4 style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px">Free</h4>
