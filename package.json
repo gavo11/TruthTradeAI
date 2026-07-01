@@ -1,0 +1,16 @@
+{
+  "name": "@workspace/api-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node index.js",
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.100.1",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "stripe": "^22.2.2"
+  }
+}
