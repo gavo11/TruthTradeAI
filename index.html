@@ -157,7 +157,7 @@ function showPricingModal() {
 
 function reportBug() {
   const tickerLine = state.ticker ? `Ticker: ${state.ticker}` : 'Ticker: (none loaded)';
-  const accountLine = `Account: ${currentUser ? (state.isPro ? 'Pro' : 'Free, signed in') : 'Not signed in'}`;
+  const accountLine = `Account: ${currentUser ? `${state.tier} (signed in)` : 'Not signed in'}`;
   const textToCopy = `truetradeaisupport@gmail.com\n\nPlease describe the issue:\n\n\n---\nContext (edit or delete as needed):\n${tickerLine}\n${accountLine}`;
 
   navigator.clipboard.writeText(textToCopy).then(() => {
@@ -182,9 +182,11 @@ function showCopyToast(message) {
   toast._hideTimer = setTimeout(() => { toast.style.opacity = '0'; }, 3500);
 }
 
-async function startCheckout() {
+async function startCheckout(plan) {
+  plan = plan === 'premium' ? 'premium' : 'pro';
+  state.checkoutPlan = plan;
   if (!currentUser) {
-    // Need to sign in before paying — remember to resume checkout after, prompt sign-in
+    // Need to sign in before paying — remember plan + resume checkout after, prompt sign-in
     state.pricingModal = false;
     state.authModal = true;
     state.authMode = 'login';
@@ -198,6 +200,7 @@ async function startCheckout() {
       state.pricingModal = false;
       state.authModal = true;
       state.authMode = 'login';
+      state.resumeCheckout = true;
       render();
       return;
     }
@@ -207,7 +210,7 @@ async function startCheckout() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${session.access_token}`
       },
-      body: JSON.stringify({ origin: window.location.origin })
+      body: JSON.stringify({ origin: window.location.origin, plan })
     });
     const json = await res.json();
     if (json.url) {
@@ -225,7 +228,7 @@ async function startCheckout() {
 async function refreshProStatus() {
   const { data: { session } } = await sbClient.auth.getSession();
   if (!session?.access_token) {
-    state.isPro = false;
+    state.tier = 'free';
     return;
   }
   try {
@@ -233,7 +236,7 @@ async function refreshProStatus() {
       headers: { 'Authorization': `Bearer ${session.access_token}` }
     });
     const json = await res.json();
-    state.isPro = json.isPro === true;
+    state.tier = json.tier || 'free';
   } catch (e) {
     console.warn('Pro status refresh failed:', e);
   }
@@ -286,7 +289,7 @@ async function saveCurrentAnalysis() {
   if (!ticker || !ai) return;
   const already = state.savedAnalyses.some(s => s.ticker === ticker);
   // Proactive free-tier cap — block a NEW ticker beyond the limit (overwrite is always fine)
-  if (!already && !state.isPro && state.savedAnalyses.length >= 2) { showSaveCapModal(); return; }
+  if (!already && state.savedAnalyses.length >= savedLimit()) { showSaveCapModal(); return; }
   state.savingAnalysis = true; render();
   try {
     const res = await fetch(`${BACKEND}/api/save-analysis`, {
@@ -363,7 +366,7 @@ async function initAuth() {
     if (currentUser) {
       await refreshProStatus();
     } else {
-      state.isPro = false;
+      state.tier = 'free';
     }
     render();
   });
@@ -386,7 +389,7 @@ async function signOut() {
 }
 
 // ── Backend URL ──────────────────────────────────────────────
-const BACKEND = 'https://49967922-f858-4511-98ba-50e9df6e1f3e-00-1in3bk3ni6a4t.spock.replit.dev';
+const BACKEND = 'https://truthtradeai.onrender.com';
 
 // ── Merge live data into stock object ───────────────────────
 function mergeLiveData(stock, live) {
@@ -614,7 +617,12 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#ffd700":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},isPro:false,expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null};
+
+function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
+function isPremium(){ return state.tier === 'premium'; }
+function savedLimit(){ return state.tier === 'premium' ? Infinity : state.tier === 'pro' ? 10 : 2; }
+function featLine(text, cColor, tColor){ return `<div style="display:flex;align-items:flex-start;gap:7px"><span style="color:${cColor};font-size:12px;margin-top:1px;flex-shrink:0">✓</span><span style="font-size:11.5px;color:${tColor};line-height:1.45">${text}</span></div>`; }
 
 function infoBtn(tooltipTitle, tooltipText) {
   const safeTitle = tooltipTitle.replace(/'/g, "&#39;");
@@ -712,6 +720,7 @@ async function analyzeStock() {
   state.expandedBearItems = {};
   state.expandedNewsItems = {};
   state.usageError = null;
+  state.xSent = null; state.xSentError = null; state.xSentLoading = false;
   render();
 
   // Safety timeout — never stay stuck loading more than 45 seconds
@@ -748,7 +757,7 @@ async function analyzeStock() {
 
     const aiJson = await aiRes.json();
     if (aiJson && !aiJson.error) {
-      state.isPro = aiJson.isPro === true;
+      state.tier = aiJson.tier || 'free';
       state.usageRemaining = aiJson.usageRemaining ?? state.usageRemaining;
       state.aiData[ticker] = aiJson;
       state.liveData[ticker] = liveDataFromAI(aiJson);
@@ -760,6 +769,34 @@ async function analyzeStock() {
   clearTimeout(loadingTimeout);
   state.loading = false;
   render();
+}
+
+async function analyzeXSentiment() {
+  if (!isPaid()) { showPricingModal(); return; }
+  const ticker = state.ticker;
+  if (!ticker) return;
+  state.xSentLoading = true; state.xSentError = null; render();
+  try {
+    const res = await fetch(`${BACKEND}/api/x-sentiment`, {
+      method: 'POST', headers: await authHeaders(), body: JSON.stringify({ ticker })
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.status === 403) { state.xSentLoading = false; showPricingModal(); return; }
+    if (res.status === 429) {
+      state.xSentError = json.message || "You've used all your X-Sentiment checks for today.";
+      state.xSentRemaining = 0; state.xSentLoading = false; render(); return;
+    }
+    if (!res.ok || json.error) throw new Error(json.error || 'failed');
+    const score = json.score ?? 50;
+    state.xSent = { ticker, score, summary: json.summary || null,
+      label: score >= 65 ? 'Bullish' : score <= 35 ? 'Bearish' : 'Mixed',
+      color: score >= 65 ? '#00c896' : score <= 35 ? '#ff4757' : '#ffd700' };
+    state.xSentRemaining = json.xSentRemaining ?? state.xSentRemaining;
+  } catch (e) {
+    console.warn('X-Sentiment failed:', e);
+    state.xSentError = 'Could not fetch X-Sentiment right now. Please try again.';
+  }
+  state.xSentLoading = false; render();
 }
 
 function render(){
@@ -793,7 +830,7 @@ function render(){
             <span style="color:#ffd700;font-size:13px">★</span><span class="wl-label">Watchlist</span>
             ${state.savedAnalyses.length > 0 ? `<span style="position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#4a90ff,#2f6fe0);color:#fff;font-size:9px;font-weight:700;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(61,133,255,.5)">${state.savedAnalyses.length}</span>` : ''}
           </button>
-          ${!state.isPro ? `<button onclick="showPricingModal()" class="btn-gold" style="padding:8px 15px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Upgrade</button>` : ''}
+          ${!isPaid() ? `<button onclick="showPricingModal()" class="btn-gold" style="padding:8px 15px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Upgrade</button>` : ''}
           ${currentUser
             ? `<button onclick="state.authModal=true;render()" class="btn-primary" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 12px rgba(61,133,255,.35)">&#128100;</button>`
             : `<button onclick="state.authModal=true;state.authMode='login';render()" class="nav-btn" style="padding:8px 14px;border-radius:10px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer">Sign In</button>`
@@ -818,7 +855,7 @@ function render(){
           <button onclick="analyzeStock()" class="btn-primary" style="margin:7px;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze</button>
         </div>
         <p style="font-size:12.5px;color:rgba(255,255,255,.4);margin-top:16px">Multi-AI consensus analysis for smarter investing${(()=>{
-          if (state.isPro) return '';
+          if (isPaid()) return '';
           if (state.usageRemaining === null) {
             return ' · <span style="color:#ffd700">3 free analyses per day</span> — <span style="color:#3d85ff;cursor:pointer" onclick="showPricingModal()">Upgrade for unlimited</span>';
           }
@@ -874,7 +911,7 @@ function render(){
               {name:'Grok',       score: models.find(m=>m.model==='Grok'       && !m.error)?.bullScore ?? null, proOnly:true}
             ].map(m=>{
               const hasScore = m.score !== null;
-              const lockedProOnly = m.proOnly && !state.isPro;
+              const lockedProOnly = m.proOnly && !isPaid();
               const color = hasScore ? (m.score>=60?'#00c896':m.score>=40?'#ffd700':'#ff4757') : 'rgba(255,255,255,.2)';
               const adj = consensus.adj || 0;
               const display = lockedProOnly ? '🔒' : hasScore ? Math.min(99,Math.max(1,m.score+adj))+'%' : (state.loading ? '...' : '—');
@@ -885,7 +922,7 @@ function render(){
         ${(()=>{
           const ai = state.aiData[state.ticker];
           if (!ai || state.loading) return '';
-          if (!state.isPro) {
+          if (!isPaid()) {
             return `<button onclick="showPricingModal()" class="pro-lock" style="width:100%;justify-content:center;border-radius:12px;padding:12px 14px;font-size:12px;font-weight:700;margin-top:2px">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               See individual model analysis — Pro
@@ -1069,7 +1106,7 @@ function render(){
       ${(()=>{
         const ai = state.aiData[state.ticker];
         if (!ai || state.loading) return '';
-        if (!state.isPro) {
+        if (!isPaid()) {
           return `<div class="pro-card" style="padding:18px 22px;margin-bottom:12px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
               <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#000;color:#fff;font-size:15px;font-weight:800;flex-shrink:0">X</span>
@@ -1085,25 +1122,41 @@ function render(){
             </div>
           </div>`;
         }
-        if (!ai.xSentiment) return '';
-        const score = ai.xSentiment.score ?? 50;
-        const label = score >= 65 ? 'Bullish' : score <= 35 ? 'Bearish' : 'Mixed';
-        const color = score >= 65 ? '#00c896' : score <= 35 ? '#ff4757' : '#ffd700';
+        const xsCap = isPremium() ? 8 : 3;
+        const xsRem = state.xSentRemaining;
+        const xs = (state.xSent && state.xSent.ticker === d.ticker) ? state.xSent : null;
+        const counter = xsRem != null ? `${xsRem} of ${xsCap} left today` : `${xsCap} / day`;
+        let body;
+        if (state.xSentLoading) {
+          body = `<div style="display:flex;align-items:center;gap:9px;padding:4px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:12.5px;color:rgba(255,255,255,.6)">Reading recent posts on X…</span></div>`;
+        } else if (xs) {
+          body = `<div style="display:flex;align-items:flex-end;gap:9px;margin-bottom:11px">
+              <span class="tnum" style="font-size:30px;font-weight:900;color:${xs.color};line-height:1">${xs.score}%</span>
+              <span style="font-size:13px;font-weight:700;color:${xs.color};padding-bottom:4px">${xs.label}</span>
+            </div>
+            <div style="display:flex;gap:3px;margin-bottom:14px">
+              ${[0,1,2,3,4].map(function(seg){return '<span style="flex:1;height:5px;border-radius:3px;background:'+(seg<Math.round(xs.score/20)?xs.color:'rgba(255,255,255,.1)')+'"></span>';}).join('')}
+            </div>
+            <p style="font-size:12px;color:rgba(255,255,255,.74);line-height:1.7">${xs.summary || 'No summary available.'}</p>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+              <span style="font-size:10px;color:rgba(255,255,255,.3)">Recent posts about ${d.ticker} on X · powered by Grok</span>
+              ${xsRem > 0 ? `<button onclick="analyzeXSentiment()" class="nav-btn" style="padding:4px 10px;border-radius:8px;font-size:10.5px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap">↻ Refresh</button>` : ''}
+            </div>`;
+        } else if (state.xSentError) {
+          body = `<p style="font-size:12.5px;color:#ff8c42;line-height:1.6">${state.xSentError}</p>${(xsRem === 0 && !isPremium()) ? `<button onclick="showPricingModal()" class="btn-primary" style="margin-top:10px;padding:8px 14px;border-radius:9px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">Want 8/day? Upgrade to Premium</button>` : ''}`;
+        } else {
+          body = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+              <p style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.6;flex:1;min-width:180px">See how retail traders on X are positioned on ${d.ticker} right now, powered by Grok.</p>
+              <button onclick="analyzeXSentiment()" class="btn-primary" style="padding:9px 16px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze X-Sentiment</button>
+            </div>`;
+        }
         return `<div class="pro-card" style="padding:18px 22px;margin-bottom:12px">
           <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px">
             <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#000;color:#fff;font-size:15px;font-weight:800;flex-shrink:0">X</span>
             <h3 style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.01em">X Sentiment</h3>
-            <span class="pro-tag">PRO</span>
+            <span style="margin-left:auto;font-size:10.5px;color:rgba(255,255,255,.4)">${counter}</span>
           </div>
-          <div style="display:flex;align-items:flex-end;gap:9px;margin-bottom:11px">
-            <span class="tnum" style="font-size:30px;font-weight:900;color:${color};line-height:1">${score}%</span>
-            <span style="font-size:13px;font-weight:700;color:${color};padding-bottom:4px">${label}</span>
-          </div>
-          <div style="display:flex;gap:3px;margin-bottom:14px">
-            ${[0,1,2,3,4].map(function(seg){return '<span style="flex:1;height:5px;border-radius:3px;background:'+(seg<Math.round(score/20)?color:'rgba(255,255,255,.1)')+'"></span>';}).join('')}
-          </div>
-          <p style="font-size:12px;color:rgba(255,255,255,.74);line-height:1.7">${ai.xSentiment.summary || 'No summary available.'}</p>
-          <p style="font-size:10px;color:rgba(255,255,255,.3);margin-top:11px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">Recent posts about ${d.ticker} on X · powered by Grok</p>
+          ${body}
         </div>`;
       })()}
 
@@ -1129,11 +1182,11 @@ function render(){
                 const statusRow = statusLabel ? `<span style="font-size:9px;font-weight:700;letter-spacing:.04em;padding:2px 7px;border-radius:5px;color:${statusColor};background:${statusBg};white-space:nowrap;vertical-align:middle;margin-left:7px">${statusLabel.toUpperCase()}</span>` : '';
 
                 let toggleRow;
-                if (hasDetail && state.isPro) {
+                if (hasDetail && isPaid()) {
                   toggleRow = `<button onclick="state.expandedBullItems[${i}]=!state.expandedBullItems[${i}];render()" class="pro-pill" style="--pp-bg:linear-gradient(180deg,rgba(0,200,150,.2),rgba(0,200,150,.07));--pp-bd:rgba(0,200,150,.45);--pp-dot:#00c896;padding:4px 12px;font-size:11px;gap:6px">
                     <span class="dot"></span>${isExpanded?'Hide':'More info'}<span class="chev">${isExpanded?'▴':'▾'}</span>
                   </button>`;
-                } else if (hasDetail && !state.isPro) {
+                } else if (hasDetail && !isPaid()) {
                   toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11px;gap:6px">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>More info<span class="pro-tag" style="font-size:8px;padding:2px 5px">PRO</span>
                   </button>`;
@@ -1141,7 +1194,7 @@ function render(){
                   toggleRow = '';
                 }
 
-                const expandedBlock = (isExpanded && hasDetail && state.isPro) ? `
+                const expandedBlock = (isExpanded && hasDetail && isPaid()) ? `
                   <div class="pro-panel" style="--accent:#00c896;margin:9px 0 2px 17px;padding:11px 14px 11px 15px">
                     <p style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
                   </div>` : '';
@@ -1174,11 +1227,11 @@ function render(){
                 const isExpanded = state.expandedBearItems[i];
 
                 let toggleRow;
-                if (hasDetail && state.isPro) {
+                if (hasDetail && isPaid()) {
                   toggleRow = `<button onclick="state.expandedBearItems[${i}]=!state.expandedBearItems[${i}];render()" class="pro-pill" style="--pp-bg:linear-gradient(180deg,rgba(255,71,87,.2),rgba(255,71,87,.07));--pp-bd:rgba(255,71,87,.45);--pp-dot:#ff4757;padding:4px 12px;font-size:11px;gap:6px">
                     <span class="dot"></span>${isExpanded?'Hide':'More info'}<span class="chev">${isExpanded?'▴':'▾'}</span>
                   </button>`;
-                } else if (hasDetail && !state.isPro) {
+                } else if (hasDetail && !isPaid()) {
                   toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11px;gap:6px">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>More info<span class="pro-tag" style="font-size:8px;padding:2px 5px">PRO</span>
                   </button>`;
@@ -1186,7 +1239,7 @@ function render(){
                   toggleRow = '';
                 }
 
-                const expandedBlock = (isExpanded && hasDetail && state.isPro) ? `
+                const expandedBlock = (isExpanded && hasDetail && isPaid()) ? `
                   <div class="pro-panel" style="--accent:#ff4757;margin:9px 0 2px 17px;padding:11px 14px 11px 15px">
                     <p style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
                   </div>` : '';
@@ -1221,11 +1274,11 @@ function render(){
               const isExpanded = state.expandedNewsItems[i];
 
               let toggleRow;
-              if (hasDetail && state.isPro) {
+              if (hasDetail && isPaid()) {
                 toggleRow = `<button onclick="state.expandedNewsItems[${i}]=!state.expandedNewsItems[${i}];render()" class="pro-pill" style="padding:4px 12px;font-size:11px;gap:6px;margin-left:8px;vertical-align:middle">
                   <span class="dot"></span>${isExpanded?'Hide':'More info'}<span class="chev">${isExpanded?'▴':'▾'}</span>
                 </button>`;
-              } else if (hasDetail && !state.isPro) {
+              } else if (hasDetail && !isPaid()) {
                 toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11px;gap:6px;margin-left:8px;vertical-align:middle">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>More info<span class="pro-tag" style="font-size:8px;padding:2px 5px">PRO</span>
                 </button>`;
@@ -1233,7 +1286,7 @@ function render(){
                 toggleRow = '';
               }
 
-              const expandedBlock = (isExpanded && hasDetail && state.isPro) ? `
+              const expandedBlock = (isExpanded && hasDetail && isPaid()) ? `
                 <div class="pro-panel" style="margin:8px 0 2px 4px;padding:11px 14px 11px 15px">
                   <p style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
                 </div>` : '';
@@ -1288,9 +1341,9 @@ function render(){
             <button onclick="state.watchlistOpen=false;state.authModal=true;state.authMode='login';render()" class="btn-primary" style="padding:9px 20px;border-radius:10px;font-size:12.5px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(61,133,255,.35)">Log In</button>
           </div>
         ` : `
-          ${!state.isPro ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;margin-bottom:10px;border-radius:10px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18)">
-            <span class="tnum" style="font-size:11px;font-weight:700;color:#ffd700">${state.savedAnalyses.length}/2 saved</span>
-            <span onclick="state.watchlistOpen=false;showPricingModal()" style="font-size:10.5px;color:rgba(255,255,255,.5);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)">Upgrade for unlimited</span>
+          ${!isPremium() ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;margin-bottom:10px;border-radius:10px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18)">
+            <span class="tnum" style="font-size:11px;font-weight:700;color:#ffd700">${state.savedAnalyses.length}/${savedLimit()} saved</span>
+            <span onclick="state.watchlistOpen=false;showPricingModal()" style="font-size:10.5px;color:rgba(255,255,255,.5);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)">Upgrade for ${isPaid()?'unlimited':'more'}</span>
           </div>` : ''}
           ${state.savedAnalyses.length === 0 ? `
             <div style="text-align:center;padding:36px 20px">
@@ -1318,35 +1371,38 @@ function render(){
         <button onclick="state.pricingModal=false;render()" style="background:transparent;color:rgba(255,255,255,.4);font-size:20px;border:none;cursor:pointer">×</button>
       </div>
       ${state.pricingNote ? `<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:11px 14px;margin-bottom:18px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span style="font-size:12.5px;color:#ffd700;font-weight:600;line-height:1.5">${state.pricingNote}</span></div>` : ''}
-      <div class="grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-        <div style="background:#0d1426;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:24px">
-          <h4 style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px">Free</h4>
-          <div style="display:flex;align-items:baseline;gap:4px;margin:14px 0 4px"><span style="font-size:32px;font-weight:800;color:#fff">$0</span><span style="font-size:12px;color:rgba(255,255,255,.4)">/ month</span></div>
-          <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px">See what AI consensus looks like</p>
-          <div style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);text-align:center;border:1px solid rgba(255,255,255,.08);margin-bottom:20px">${state.isPro?'Available':'Your current plan'}</div>
-          <div style="display:flex;flex-direction:column;gap:12px">
-            ${[
-              "3 stock analyses per day",
-              "3 AI models — Claude, GPT-4o, Gemini"
-            ].map(f=>`<div style="display:flex;align-items:flex-start;gap:8px"><span style="color:rgba(255,255,255,.3);font-size:13px;margin-top:1px">✓</span><span style="font-size:13px;color:rgba(255,255,255,.6)">${f}</span></div>`).join('')}
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+        <div style="background:#0d1426;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 18px">
+          <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Free</h4>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$0</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
+          <div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">${state.tier==='free'?'Your plan':'Free'}</div>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            ${["3 analyses / day","3 AI models (Gemini, GPT-4o, Claude)","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
           </div>
         </div>
-        <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:24px;position:relative">
-          <span style="position:absolute;top:18px;right:20px;font-size:9px;font-weight:800;color:#0a0f1e;background:linear-gradient(180deg,#ffe566,#f0b90b);padding:4px 9px;border-radius:7px;letter-spacing:0.06em;box-shadow:0 3px 10px rgba(240,185,11,.3)">POPULAR</span>
-          <h4 style="font-size:18px;font-weight:800;color:#fff;margin-bottom:4px">Pro</h4>
-          <div style="display:flex;align-items:baseline;gap:4px;margin:14px 0 4px"><span style="font-size:32px;font-weight:800;color:#fff">$9.99</span><span style="font-size:12px;color:rgba(255,255,255,.4)">/ month</span></div>
-          <p style="font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px">Unlock the full AI consensus</p>
-          ${state.isPro
-            ? `<div style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.15);color:#00c896;text-align:center;border:1px solid rgba(0,200,150,.3);margin-bottom:20px">✓ You're on Pro</div>`
-            : `<button onclick="state.pricingModal=false;startCheckout()" class="btn-gold" style="width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;margin-bottom:20px;box-shadow:0 6px 18px rgba(240,185,11,.3)">Upgrade to Pro</button>`
+        <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:20px 18px;position:relative">
+          <span style="position:absolute;top:-9px;left:18px;font-size:9px;font-weight:800;color:#0a0f1e;background:linear-gradient(180deg,#ffe566,#f0b90b);padding:3px 9px;border-radius:7px;letter-spacing:0.06em;box-shadow:0 3px 10px rgba(240,185,11,.3)">POPULAR</span>
+          <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Pro</h4>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$6.99</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
+          ${state.tier==='pro'
+            ? `<div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
+            : state.tier==='premium'
+              ? `<div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">Included in Premium</div>`
+              : `<button onclick="state.pricingModal=false;startCheckout('pro')" class="btn-gold" style="width:100%;padding:11px;border-radius:9px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(240,185,11,.3)">Upgrade to Pro</button>`
           }
-          <div style="display:flex;flex-direction:column;gap:12px">
-            ${[
-              "Unlimited stock analyses",
-              "5 AI models — adds Perplexity &amp; Grok",
-              "Per-model reasoning — see why each AI landed where it did",
-              "X Sentiment social score"
-            ].map(f=>`<div style="display:flex;align-items:flex-start;gap:8px"><span style="color:#ffd700;font-size:13px;margin-top:1px">✓</span><span style="font-size:13px;color:rgba(255,255,255,.8)">${f}</span></div>`).join('')}
+          <div style="display:flex;flex-direction:column;gap:9px">
+            ${["18 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","10 saved watchlist slots","X-Sentiment: 3 / day"].map(f=>featLine(f,'#ffd700','rgba(255,255,255,.8)')).join('')}
+          </div>
+        </div>
+        <div style="background:linear-gradient(135deg,rgba(140,110,255,.14),rgba(61,133,255,.08));border:1.5px solid rgba(140,110,255,.45);border-radius:16px;padding:20px 18px;position:relative">
+          <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Premium</h4>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$19.99</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
+          ${state.tier==='premium'
+            ? `<div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
+            : `<button onclick="state.pricingModal=false;startCheckout('premium')" class="btn-primary" style="width:100%;padding:11px;border-radius:9px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(122,90,248,.35)">Upgrade to Premium</button>`
+          }
+          <div style="display:flex;flex-direction:column;gap:9px">
+            ${["45 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","Unlimited saved watchlist","X-Sentiment: 8 / day"].map(f=>featLine(f,'#a48bff','rgba(255,255,255,.85)')).join('')}
           </div>
         </div>
       </div>
@@ -1364,21 +1420,25 @@ function render(){
         <div style="background:#0d1426;border-radius:12px;padding:16px;margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:12px;color:rgba(255,255,255,.4)">Current Plan</span>
-            ${state.isPro
-              ? `<span style="font-size:12px;font-weight:700;color:#ffd700;background:rgba(255,215,0,.15);padding:3px 10px;border-radius:6px">Pro</span>`
-              : `<span style="font-size:12px;font-weight:700;color:#ffd700;background:rgba(255,215,0,.1);padding:3px 10px;border-radius:6px">Free</span>`
-            }
+            <span style="font-size:12px;font-weight:700;text-transform:capitalize;color:${state.tier==='premium'?'#a48bff':state.tier==='pro'?'#ffd700':'rgba(255,255,255,.6)'};background:${state.tier==='premium'?'rgba(140,110,255,.15)':state.tier==='pro'?'rgba(255,215,0,.15)':'rgba(255,255,255,.06)'};padding:3px 10px;border-radius:6px">${state.tier}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:12px;color:rgba(255,255,255,.4)">Daily Analyses</span>
-            <span style="font-size:12px;font-weight:600;color:#fff">${state.isPro ? 'Unlimited' : '3 / day'}</span>
+            <span style="font-size:12px;color:rgba(255,255,255,.4)">Daily analyses</span>
+            <span style="font-size:12px;font-weight:600;color:#fff">${state.tier==='premium'?'45':state.tier==='pro'?'18':'3'} / day</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <span style="font-size:12px;color:rgba(255,255,255,.4)">Saved watchlist</span>
+            <span style="font-size:12px;font-weight:600;color:#fff">${state.tier==='premium'?'Unlimited':state.tier==='pro'?'10':'2'}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:12px;color:rgba(255,255,255,.4)">AI Reasoning</span>
-            <span style="font-size:12px;font-weight:600;color:${state.isPro ? '#00c896' : '#ff4757'}">${state.isPro ? 'Unlocked' : 'Pro only'}</span>
+            <span style="font-size:12px;color:rgba(255,255,255,.4)">X-Sentiment</span>
+            <span style="font-size:12px;font-weight:600;color:${isPaid()?'#00c896':'#ff4757'}">${state.tier==='premium'?'8 / day':state.tier==='pro'?'3 / day':'Locked'}</span>
           </div>
         </div>
-        ${!state.isPro ? `<button onclick="showPricingModal()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer;margin-bottom:10px">Upgrade to Pro — $9.99/mo</button>` : `<div style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.1);color:#00c896;border:1.5px solid rgba(0,200,150,.3);text-align:center;margin-bottom:10px">✓ You're on Pro</div>`}
+        ${state.tier==='premium'
+          ? `<div style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.1);color:#00c896;border:1.5px solid rgba(0,200,150,.3);text-align:center;margin-bottom:10px">✓ You're on Premium</div>`
+          : `<button onclick="showPricingModal()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer;margin-bottom:10px">${state.tier==='pro'?'Upgrade to Premium':'Upgrade your plan'}</button>`
+        }
         <button onclick="signOut();state.authModal=false;render()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08);cursor:pointer">Sign Out</button>
       ` : state.authMode==='verify' ? `
         <div style="text-align:center">
@@ -1432,7 +1492,7 @@ async function handleAuth() {
       if (state.resumeCheckout) {
         state.resumeCheckout = false;
         render();
-        await startCheckout();
+        await startCheckout(state.checkoutPlan);
         return;
       }
 
