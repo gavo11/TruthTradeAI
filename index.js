@@ -606,7 +606,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: isPro ? 450 : 250,
+        max_tokens: tier !== 'free' ? 450 : 250,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: withLiveSearch(ticker, searchBlock, gptClaudePrompt) }
@@ -631,7 +631,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
-        max_tokens: isPro ? 450 : 250,
+        max_tokens: tier !== 'free' ? 450 : 250,
         system: systemPrompt,
         messages: [{ role: 'user', content: withLiveSearch(ticker, searchBlock, gptClaudePrompt) }]
       })
