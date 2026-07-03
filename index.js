@@ -198,7 +198,7 @@ function withLiveSearch(ticker, searchBlock, prompt) {
   return `Current information from a live web search for ${ticker} (use this for current price, recent news, and dates — it is more up to date than your training data):\n\n${searchBlock}\n\n---\n\n${prompt}`;
 }
 
-// ── Verify Supabase token and look up is_pro ──────────────────────────────
+// ── Verify Supabase token and look up the user's membership tier ───────────
 async function getUserTier(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return 'free';
   const token = authHeader.slice(7);
@@ -240,25 +240,42 @@ async function getUserId(authHeader) {
   }
 }
 
-// ── Write is_pro to Supabase profiles table ──────────────────────────────
+// ── Write the membership tier to the Supabase profiles table ──────────────
+// IMPORTANT: a plain PATCH updates 0 rows (but still returns 200) when the user
+// has no profiles row yet — which silently loses the upgrade and leaves a paying
+// user stuck on 'free'. So we PATCH first, and if nothing was updated we INSERT
+// the row. `return=representation` lets us detect the 0-rows case.
 async function setTier(userId, tier) {
+  const authHeaders = {
+    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+    'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+    'Content-Type': 'application/json'
+  };
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ tier })
-      }
+      { method: 'PATCH', headers: { ...authHeaders, 'Prefer': 'return=representation' }, body: JSON.stringify({ tier }) }
     );
     if (!res.ok) {
-      const errText = await res.text();
-      console.error(`[setTier] Failed to update user ${userId}:`, errText);
+      console.error(`[setTier] PATCH failed for user ${userId}:`, await res.text());
+      return;
+    }
+    const updated = await res.json();
+    if (Array.isArray(updated) && updated.length === 0) {
+      // No existing profile row — create one so the tier actually persists.
+      const insRes = await fetch(
+        `${SUPABASE_URL}/rest/v1/profiles`,
+        {
+          method: 'POST',
+          headers: { ...authHeaders, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify({ id: userId, tier })
+        }
+      );
+      if (!insRes.ok) {
+        console.error(`[setTier] INSERT fallback failed for user ${userId}:`, await insRes.text());
+      } else {
+        console.log(`[setTier] Created profiles row for ${userId} with tier=${tier}.`);
+      }
     }
   } catch (e) {
     console.error(`[setTier] Error updating user ${userId}:`, e.message);
