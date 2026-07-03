@@ -36,6 +36,9 @@
   .plan-cta { display: block; text-align: center; width: 100%; padding: 12px; border-radius: 10px; font-size: 14px; font-weight: 700; margin-bottom: 22px; text-decoration: none; }
   .plan-cta.free { background: rgba(255,255,255,.04); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.08); }
   .plan-cta.pro { background: #3d85ff; color: #fff; }
+  /* Tier-aware states (applied by script, must win over .pro/.premium — keep after them) */
+  .plan-cta.current { background: rgba(0,200,150,.15); color: #00c896; border: 1px solid rgba(0,200,150,.35); cursor: default; }
+  .plan-cta.included { background: rgba(255,255,255,.04); color: rgba(255,255,255,.4); border: 1px solid rgba(255,255,255,.08); cursor: default; }
   .feature { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 13px; }
   .feature .check { font-size: 13px; margin-top: 1px; }
   .feature.free .check { color: rgba(255,255,255,.3); }
@@ -71,7 +74,7 @@
         <div class="plan-name">Pro</div>
         <div class="plan-price"><span class="amount">$7.99</span><span class="period">/ month</span></div>
         <div class="plan-tagline">The full multi-model consensus</div>
-        <a class="plan-cta pro" href="index.html?checkout=pro">Upgrade to Pro</a>
+        <a id="pro-cta" class="plan-cta pro" href="index.html?checkout=pro">Upgrade to Pro</a>
         <div class="feature pro"><span class="check">✓</span><span class="text">10 analyses per day</span></div>
         <div class="feature pro"><span class="check">✓</span><span class="text">All 5 AI models — adds Perplexity &amp; Grok</span></div>
         <div class="feature pro"><span class="check">✓</span><span class="text">More detailed analysis</span></div>
@@ -85,7 +88,7 @@
         <div class="plan-name">Premium</div>
         <div class="plan-price"><span class="amount">$19.99</span><span class="period">/ month</span></div>
         <div class="plan-tagline">Maximum limits, everything unlocked</div>
-        <a class="plan-cta premium" href="index.html?checkout=premium">Upgrade to Premium</a>
+        <a id="premium-cta" class="plan-cta premium" href="index.html?checkout=premium">Upgrade to Premium</a>
         <div class="feature premium"><span class="check">✓</span><span class="text">20 analyses per day</span></div>
         <div class="feature premium"><span class="check">✓</span><span class="text">All 5 AI models — adds Perplexity &amp; Grok</span></div>
         <div class="feature premium"><span class="check">✓</span><span class="text">More detailed analysis</span></div>
@@ -100,5 +103,39 @@
 
     <a class="back-link" href="index.html">← Back to TrueTradeAI</a>
   </div>
+
+  <!-- Tier awareness: reflect the signed-in user's current plan on the cards.
+       If signed out / offline, the default "Upgrade" CTAs remain. -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+  (async function(){
+    const SUPABASE_URL = 'https://ncqrxtczvcpjocurlwzb.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5jcXJ4dGN6dmNwam9jdXJsd3piIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwNDAzMzMsImV4cCI6MjA5NjYxNjMzM30.8iK118e9jWEujCkNZp8MbYQbHdPpiKZ2Ko94ZFoljGs';
+    const BACKEND = 'https://truthtradeai.onrender.com';
+    let tier = 'free';
+    try {
+      const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const { data: { session } } = await sb.auth.getSession();
+      if (session && session.access_token) {
+        const r = await fetch(BACKEND + '/api/pro-status', { headers: { Authorization: 'Bearer ' + session.access_token } });
+        if (r.ok) { const j = await r.json(); tier = j.tier || 'free'; }
+      }
+    } catch (e) { /* signed out / offline — keep default upgrade CTAs */ }
+
+    const proCta = document.getElementById('pro-cta');
+    const premCta = document.getElementById('premium-cta');
+    const asCurrent  = (el, label) => { el.textContent = label; el.removeAttribute('href'); el.classList.add('current'); };
+    const asIncluded = (el, label) => { el.textContent = label; el.removeAttribute('href'); el.classList.add('included'); };
+
+    if (tier === 'pro') {
+      // On Pro: Pro card is the current plan; Premium remains a real upgrade.
+      asCurrent(proCta, '✓ Your current plan');
+    } else if (tier === 'premium') {
+      // On Premium: nothing to upgrade to; Pro is included, Premium is current.
+      asIncluded(proCta, 'Included in Premium');
+      asCurrent(premCta, '✓ Your current plan');
+    }
+  })();
+  </script>
 </body>
 </html>
