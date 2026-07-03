@@ -7,9 +7,10 @@ const port = process.env.PORT || 3000;
 
 const SUPABASE_URL = 'https://ncqrxtczvcpjocurlwzb.supabase.co';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const TIER_ANALYSIS_LIMIT = { free: 3, pro: 18, premium: 45 };
-const TIER_XSENT_LIMIT = { free: 0, pro: 3, premium: 8 };
+const TIER_ANALYSIS_LIMIT = { free: 3, pro: 10, premium: 20 };
+const TIER_XSENT_LIMIT = { free: 0, pro: 2, premium: 4 };
 const TIER_SAVED_LIMIT = { free: 2, pro: 10, premium: Infinity };
+const TIER_FABLE_LIMIT = { free: 0, pro: 1, premium: 5 };
 
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 
@@ -325,6 +326,25 @@ async function checkAndIncrementUsage(identifier, limit) {
   }
 }
 
+// ── Read today's usage count for an identifier WITHOUT incrementing it ──
+// Used to report remaining quota (e.g. Fable 5) when we aren't consuming a use.
+// Returns 0 on any error so callers can compute a non-negative remaining.
+async function getUsageCount(identifier) {
+  const today = new Date().toISOString().slice(0, 10);
+  try {
+    const getRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/usage?identifier=eq.${encodeURIComponent(identifier)}&date=eq.${today}&select=count`,
+      { headers: { 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY } }
+    );
+    if (!getRes.ok) return 0;
+    const rows = await getRes.json();
+    return rows?.[0]?.count ?? 0;
+  } catch (e) {
+    console.warn('[Usage] getUsageCount failed:', e.message);
+    return 0;
+  }
+}
+
 // ── Create a Stripe Checkout session for Pro upgrade ──────────────────────
 app.post('/api/create-checkout-session', async (req, res) => {
   const authHeader = req.headers['authorization'];
@@ -409,7 +429,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   return JSON.parse(extractJSON(stripped));
 }
 
-// POST /api/x-sentiment — gated, daily-capped feature (Free 0 / Pro 3 / Premium 8)
+// POST /api/x-sentiment — gated, daily-capped feature (Free 0 / Pro 2 / Premium 4)
 app.post('/api/x-sentiment', async (req, res) => {
   const { ticker } = req.body;
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
@@ -439,7 +459,7 @@ app.post('/api/analyze', async (req, res) => {
   const tier = await getUserTier(req.headers['authorization']);
   const userId = await getUserId(req.headers['authorization']);
 
-  // ── Daily analysis cap (all tiers: free 3 / pro 18 / premium 45) — BEFORE any AI calls ──
+  // ── Daily analysis cap (all tiers: free 3 / pro 10 / premium 20) — BEFORE any AI calls ──
   const analysisLimit = TIER_ANALYSIS_LIMIT[tier];
   const usage = await checkAndIncrementUsage(getRequestIdentifier(req, userId), analysisLimit);
   if (!usage.allowed) {
@@ -451,6 +471,26 @@ app.post('/api/analyze', async (req, res) => {
     });
   }
   const usageRemaining = usage.remaining;
+
+  // ── Claude slot model selection (Haiku default, Fable 5 as a daily-capped swap) ──
+  // Free tier is ALWAYS Haiku regardless of any client-sent preference (defensive —
+  // never trust the frontend). Paid tiers may swap to Fable 5 up to their daily cap;
+  // once the cap is hit we silently fall back to Haiku instead of erroring.
+  const fableLimit = TIER_FABLE_LIMIT[tier] || 0;
+  const fableId = `fable:${getRequestIdentifier(req, userId)}`;
+  const wantsFable = req.body?.useFable === true && tier !== 'free' && fableLimit > 0;
+  let useFableModel = false;
+  let fableRemaining;
+  if (wantsFable) {
+    const fableUsage = await checkAndIncrementUsage(fableId, fableLimit);
+    useFableModel = fableUsage.allowed;      // false once today's cap is reached
+    fableRemaining = fableUsage.remaining;   // remaining after this use, or 0 if capped
+  } else {
+    // Not consuming a Fable use — just report how many are left today.
+    fableRemaining = Math.max(0, fableLimit - await getUsageCount(fableId));
+  }
+  const claudeModelId = useFableModel ? 'claude-fable-5' : 'claude-haiku-4-5-20251001';
+  const claudeModelName = useFableModel ? 'Claude Fable 5' : 'Claude Haiku 4.5';
 
   const systemPrompt = `You are a senior equity research analyst at a top-tier investment bank with 20 years of experience. You provide rigorous, data-driven stock analysis. You always search for the most recent news, earnings reports, analyst upgrades/downgrades, and sector developments before forming your view. Your analysis is balanced — you identify both genuine opportunities and real risks. You never give generic responses. Every insight must be specific to this company right now.`;
 
@@ -620,7 +660,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
     return { ...JSON.parse(extractJSON(stripped)), model: 'GPT-4o' };
   }
 
-  async function callClaude() {
+  async function callClaude(modelId) {
     const searchBlock = await searchPromise;
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -630,7 +670,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model: modelId,
         max_tokens: tier !== 'free' ? 450 : 250,
         system: systemPrompt,
         messages: [{ role: 'user', content: withLiveSearch(ticker, searchBlock, gptClaudePrompt) }]
@@ -690,7 +730,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
     const [gemini, gpt, claude, perplexity, grok] = await Promise.allSettled([
       callGemini(),
       callGPT(),
-      callClaude(),
+      callClaude(claudeModelId),
       callPerplexity(),
       callGrok()
     ]);
@@ -721,6 +761,10 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       ticker,
       tier,
       usageRemaining,
+      claudeModel:          claudeModelName,
+      fableUsed:            useFableModel,
+      fableRemaining,
+      fableLimit,
       companyName:          best?.companyName        || ticker,
       currentPrice:         best?.currentPrice       || null,
       peRatio:              best?.peRatio            || null,
