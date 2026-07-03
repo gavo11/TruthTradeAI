@@ -66,6 +66,7 @@
     font-size: 11px; font-weight: 700; color: #5a9bff;
     margin-bottom: 5px; letter-spacing: 0.05em;
   }
+  #tt-tooltip-body { white-space: pre-line; }
 
   /* ── Premium design system — reusable components (applied section by section) ── */
   .eyebrow { font-size:10px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:rgba(255,255,255,.4); }
@@ -617,11 +618,41 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#ffd700":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5'};
 
 function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
 function isPremium(){ return state.tier === 'premium'; }
 function savedLimit(){ return state.tier === 'premium' ? Infinity : state.tier === 'pro' ? 10 : 2; }
+function fableLimit(){ return state.tier === 'premium' ? 5 : state.tier === 'pro' ? 1 : 0; }
+function fableRemaining(){ return state.fableRemaining == null ? fableLimit() : state.fableRemaining; }
+
+// Tooltip shown on the Claude model chip — explains which Claude model is active and,
+// for paid tiers, the Fable 5 daily swap and how many uses remain today.
+function claudeTipTitle(){ return 'Claude model'; }
+function claudeTipText(){
+  const active = state.claudeModelName || 'Claude Haiku 4.5';
+  if (!isPaid()) {
+    return `Active: ${active}\nUpgrade to unlock Claude Fable 5.`;
+  }
+  const lim = fableLimit();
+  const rem = fableRemaining();
+  const used = Math.max(0, lim - rem);
+  const fableOn = state.useFable;
+  const cappedNote = (fableOn && rem <= 0) ? `\nToday's Fable 5 uses are used up — next analysis uses Haiku.` : '';
+  return `${fableOn ? '✓' : '○'} Claude Fable 5 — ${used} of ${lim} used today`
+    + `\n${fableOn ? '○' : '✓'} Claude Haiku 4.5 (default)`
+    + cappedNote
+    + `\n\nTap to ${fableOn ? 'switch back to Haiku' : 'use Fable 5 on your next analysis'}.`;
+}
+// Toggle the Claude slot preference (paid only). Free users are sent to pricing.
+function toggleFable(){
+  if (!isPaid()) { showPricingModal(); return; }
+  state.useFable = !state.useFable;
+  render();
+  // Re-show the tooltip on the freshly-rendered chip so the checkmark updates live.
+  const el = document.querySelector('[data-claude-chip]');
+  if (el) showTip(el);
+}
 function featLine(text, cColor, tColor){ return `<div style="display:flex;align-items:flex-start;gap:7px"><span style="color:${cColor};font-size:12px;margin-top:1px;flex-shrink:0">✓</span><span style="font-size:11.5px;color:${tColor};line-height:1.45">${text}</span></div>`; }
 
 function infoBtn(tooltipTitle, tooltipText) {
@@ -741,7 +772,7 @@ async function analyzeStock() {
     const aiRes = await fetch(`${BACKEND}/api/analyze`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ticker })
+      body: JSON.stringify({ ticker, useFable: state.useFable && isPaid() })
     });
 
     if (aiRes.status === 429) {
@@ -759,6 +790,9 @@ async function analyzeStock() {
     if (aiJson && !aiJson.error) {
       state.tier = aiJson.tier || 'free';
       state.usageRemaining = aiJson.usageRemaining ?? state.usageRemaining;
+      state.claudeModelName = aiJson.claudeModel || 'Claude Haiku 4.5';
+      state.fableRemaining = aiJson.fableRemaining ?? state.fableRemaining;
+      state.fableLimit = aiJson.fableLimit ?? state.fableLimit;
       state.aiData[ticker] = aiJson;
       state.liveData[ticker] = liveDataFromAI(aiJson);
     }
@@ -915,6 +949,14 @@ function render(){
               const color = hasScore ? (m.score>=60?'#00c896':m.score>=40?'#ffd700':'#ff4757') : 'rgba(255,255,255,.2)';
               const adj = consensus.adj || 0;
               const display = lockedProOnly ? '🔒' : hasScore ? Math.min(99,Math.max(1,m.score+adj))+'%' : (state.loading ? '...' : '—');
+              // The Claude chip is interactive: hover shows the active model + Fable 5 status,
+              // tapping toggles the Fable 5 swap (paid) or opens pricing (free).
+              if (m.name === 'Claude') {
+                const fableOn = isPaid() && state.useFable;
+                const tipText = claudeTipText().replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+                const f5badge = fableOn ? `<span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#a48bff;background:rgba(140,110,255,.16);border:1px solid rgba(140,110,255,.35);padding:1px 5px;border-radius:5px">F5</span>` : '';
+                return `<div data-claude-chip="1" tabindex="0" onclick="toggleFable()" onmouseenter="showTip(this)" onmouseleave="hideTip()" onfocus="showTip(this)" onblur="hideTip()" data-tip-title="${claudeTipTitle()}" data-tip-text="${tipText}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;cursor:pointer;background:${fableOn?'rgba(140,110,255,.08)':'rgba(255,255,255,.04)'};border:1px solid ${fableOn?'rgba(140,110,255,.3)':'rgba(255,255,255,.07)'}"><div style="width:7px;height:7px;border-radius:50%;background:${color};box-shadow:0 0 6px ${hasScore?color:'transparent'}"></div><span style="font-size:11px;color:rgba(255,255,255,.55);font-weight:500">${m.name}</span>${f5badge}<span class="tnum" style="font-size:12px;font-weight:800;color:${color}">${display}</span></div>`;
+              }
               return `<div style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;background:${lockedProOnly?'rgba(255,215,0,.06)':'rgba(255,255,255,.04)'};border:1px solid ${lockedProOnly?'rgba(255,215,0,.2)':'rgba(255,255,255,.07)'}"><div style="width:7px;height:7px;border-radius:50%;background:${color};box-shadow:0 0 6px ${hasScore?color:'transparent'}"></div><span style="font-size:11px;color:rgba(255,255,255,.55);font-weight:500">${m.name}</span><span class="tnum" style="font-size:12px;font-weight:800;color:${lockedProOnly?'#ffd700':color}">${display}</span></div>`;
             }).join('');
           })()}
@@ -1122,7 +1164,7 @@ function render(){
             </div>
           </div>`;
         }
-        const xsCap = isPremium() ? 8 : 3;
+        const xsCap = isPremium() ? 4 : 2;
         const xsRem = state.xSentRemaining;
         const xs = (state.xSent && state.xSent.ticker === d.ticker) ? state.xSent : null;
         const counter = xsRem != null ? `${xsRem} of ${xsCap} left today` : `${xsCap} / day`;
@@ -1143,7 +1185,7 @@ function render(){
               ${xsRem > 0 ? `<button onclick="analyzeXSentiment()" class="nav-btn" style="padding:4px 10px;border-radius:8px;font-size:10.5px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap">↻ Refresh</button>` : ''}
             </div>`;
         } else if (state.xSentError) {
-          body = `<p style="font-size:12.5px;color:#ff8c42;line-height:1.6">${state.xSentError}</p>${(xsRem === 0 && !isPremium()) ? `<button onclick="showPricingModal()" class="btn-primary" style="margin-top:10px;padding:8px 14px;border-radius:9px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">Want 8/day? Upgrade to Premium</button>` : ''}`;
+          body = `<p style="font-size:12.5px;color:#ff8c42;line-height:1.6">${state.xSentError}</p>${(xsRem === 0 && !isPremium()) ? `<button onclick="showPricingModal()" class="btn-primary" style="margin-top:10px;padding:8px 14px;border-radius:9px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">Want 4/day? Upgrade to Premium</button>` : ''}`;
         } else {
           body = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
               <p style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.6;flex:1;min-width:180px">See how retail traders on X are positioned on ${d.ticker} right now, powered by Grok.</p>
@@ -1383,7 +1425,7 @@ function render(){
         <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:20px 18px;position:relative">
           <span style="position:absolute;top:-9px;left:18px;font-size:9px;font-weight:800;color:#0a0f1e;background:linear-gradient(180deg,#ffe566,#f0b90b);padding:3px 9px;border-radius:7px;letter-spacing:0.06em;box-shadow:0 3px 10px rgba(240,185,11,.3)">POPULAR</span>
           <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Pro</h4>
-          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$6.99</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$7.99</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
           ${state.tier==='pro'
             ? `<div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
             : state.tier==='premium'
@@ -1391,7 +1433,7 @@ function render(){
               : `<button onclick="state.pricingModal=false;startCheckout('pro')" class="btn-gold" style="width:100%;padding:11px;border-radius:9px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(240,185,11,.3)">Upgrade to Pro</button>`
           }
           <div style="display:flex;flex-direction:column;gap:9px">
-            ${["18 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","10 saved watchlist slots","X-Sentiment: 3 / day"].map(f=>featLine(f,'#ffd700','rgba(255,255,255,.8)')).join('')}
+            ${["10 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","10 saved watchlist slots","X-Sentiment: 2 / day","Claude Fable 5: 1 / day"].map(f=>featLine(f,'#ffd700','rgba(255,255,255,.8)')).join('')}
           </div>
         </div>
         <div style="background:linear-gradient(135deg,rgba(140,110,255,.14),rgba(61,133,255,.08));border:1.5px solid rgba(140,110,255,.45);border-radius:16px;padding:20px 18px;position:relative">
@@ -1402,7 +1444,7 @@ function render(){
             : `<button onclick="state.pricingModal=false;startCheckout('premium')" class="btn-primary" style="width:100%;padding:11px;border-radius:9px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(122,90,248,.35)">Upgrade to Premium</button>`
           }
           <div style="display:flex;flex-direction:column;gap:9px">
-            ${["45 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","Unlimited saved watchlist","X-Sentiment: 8 / day"].map(f=>featLine(f,'#a48bff','rgba(255,255,255,.85)')).join('')}
+            ${["20 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","Unlimited saved watchlist","X-Sentiment: 4 / day","Claude Fable 5: 5 / day"].map(f=>featLine(f,'#a48bff','rgba(255,255,255,.85)')).join('')}
           </div>
         </div>
       </div>
@@ -1424,15 +1466,19 @@ function render(){
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:12px;color:rgba(255,255,255,.4)">Daily analyses</span>
-            <span style="font-size:12px;font-weight:600;color:#fff">${state.tier==='premium'?'45':state.tier==='pro'?'18':'3'} / day</span>
+            <span style="font-size:12px;font-weight:600;color:#fff">${state.tier==='premium'?'20':state.tier==='pro'?'10':'3'} / day</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:12px;color:rgba(255,255,255,.4)">Saved watchlist</span>
             <span style="font-size:12px;font-weight:600;color:#fff">${state.tier==='premium'?'Unlimited':state.tier==='pro'?'10':'2'}</span>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:12px;color:rgba(255,255,255,.4)">X-Sentiment</span>
-            <span style="font-size:12px;font-weight:600;color:${isPaid()?'#00c896':'#ff4757'}">${state.tier==='premium'?'8 / day':state.tier==='pro'?'3 / day':'Locked'}</span>
+            <span style="font-size:12px;font-weight:600;color:${isPaid()?'#00c896':'#ff4757'}">${state.tier==='premium'?'4 / day':state.tier==='pro'?'2 / day':'Locked'}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:12px;color:rgba(255,255,255,.4)">Claude Fable 5</span>
+            <span style="font-size:12px;font-weight:600;color:${isPaid()?'#a48bff':'#ff4757'}">${state.tier==='premium'?'5 / day':state.tier==='pro'?'1 / day':'Locked'}</span>
           </div>
         </div>
         ${state.tier==='premium'
