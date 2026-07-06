@@ -791,10 +791,10 @@ function claudePopupRows(){
   const goldTag = `<span class="pro-tag" style="font-size:8px;padding:2px 6px">PREMIUM</span>`;
   const haiku = modelOption({ title:'Claude Haiku 4.5', sub:'Default · fast, always available', active:haikuActive, onclick:'selectClaudeModel(false)' });
   let fableSub;
-  if (!paid) fableSub = 'Upgrade to unlock';
+  if (!paid) fableSub = `Anthropic's most powerful reasoning model — upgrade to unlock`;
   else if (capped) fableSub = `${used} of ${lim} Fable 5 uses today — resets tomorrow`;
-  else fableSub = `${used} of ${lim} used today`;
-  const fable = modelOption({ title:'Claude Fable 5', sub:fableSub, active:fableActive, premium:true, locked:!paid, disabled:capped, onclick:'selectClaudeModel(true)', badge:goldTag });
+  else fableSub = `Anthropic's most powerful reasoning model · ${used} of ${lim} used today`;
+  const fable = modelOption({ title:'✦ Claude Fable 5', sub:fableSub, active:fableActive, premium:true, locked:!paid, disabled:capped, onclick:'selectClaudeModel(true)', badge:goldTag });
   const foot = paid ? '' : `<button onclick="closeModelPopup();showPricingModal()" class="btn-gold" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Unlock Fable 5 with Pro</button>`;
   return haiku + fable + foot;
 }
@@ -843,6 +843,23 @@ function renderModelPopup(){
       <div style="display:flex;flex-direction:column;gap:10px">${rows}</div>
     </div>`;
 }
+// Fable 5 promo banner — shown to Free users under the hero so the feature is
+// discoverable without clicking into the model popup. Slim, gold, premium tone
+// (matches .pro-card language), never shown to paid tiers.
+function fablePromoBanner(){
+  if (state.tier !== 'free') return '';
+  return `<div class="fade-in" style="max-width:560px;margin:-6px auto 24px">
+    <div onclick="showPricingModal()" style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,rgba(255,215,0,.09),rgba(255,215,0,.02) 55%,rgba(61,133,255,.05));border:1px solid rgba(255,215,0,.28);box-shadow:0 0 0 1px rgba(255,215,0,.04), 0 10px 28px -12px rgba(0,0,0,.55)">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(180deg,rgba(255,215,0,.2),rgba(255,215,0,.06));border:1px solid rgba(255,215,0,.35);color:#ffd700;font-size:14px;flex-shrink:0">✦</span>
+      <div style="flex:1;min-width:0;text-align:left">
+        <p style="font-size:12.5px;font-weight:800;color:#fff;letter-spacing:-.01em">Claude Fable 5 <span class="pro-tag" style="font-size:8px;padding:2px 6px;margin-left:5px;vertical-align:1px">PRO</span></p>
+        <p style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">Anthropic's most powerful reasoning model — swap it into your Claude slot.</p>
+      </div>
+      <span class="btn-gold" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;white-space:nowrap;flex-shrink:0;box-shadow:0 4px 12px rgba(240,185,11,.28)">Try Fable 5</span>
+    </div>
+  </div>`;
+}
+
 function featLine(text, cColor, tColor){ return `<div style="display:flex;align-items:flex-start;gap:7px"><span style="color:${cColor};font-size:12px;margin-top:1px;flex-shrink:0">✓</span><span style="font-size:11.5px;color:${tColor};line-height:1.45">${text}</span></div>`; }
 
 function infoBtn(tooltipTitle, tooltipText) {
@@ -1105,6 +1122,8 @@ function render(){
         ` : ''}
       </div>
 
+      ${fablePromoBanner()}
+
       ${state.ticker ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
         <span class="tnum" style="font-size:27px;font-weight:900;color:#fff;letter-spacing:-.01em">${d.ticker}</span>
         <span style="font-size:14px;color:rgba(255,255,255,.45);font-weight:500">${d.companyName}</span>
@@ -1158,7 +1177,11 @@ function render(){
                 ? `<span class="pulse-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${fableOn?'#ffd700':'#5a9bff'}"></span>`
                 : claudeErr ? '⚠'
                 : lockedProOnly ? '🔒' : hasScore ? Math.min(99,Math.max(1,m.score+adj))+'%' : (state.loading ? '...' : '—');
-              const f5badge = fableOn ? `<span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#ffd700;background:rgba(255,215,0,.14);border:1px solid rgba(255,215,0,.4);padding:1px 5px;border-radius:5px">F5</span>` : '';
+              // F5 badge when Fable is active; a subtle gold sparkle teaser on the Claude
+              // chip for Free users (hints there's a premium model behind this slot).
+              const f5badge = fableOn
+                ? `<span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#ffd700;background:rgba(255,215,0,.14);border:1px solid rgba(255,215,0,.4);padding:1px 5px;border-radius:5px">F5</span>`
+                : (m.name === 'Claude' && !isPaid() ? `<span style="font-size:10px;color:#ffd700;opacity:.85;line-height:1">✦</span>` : '');
               const tipText = modelTipText(m.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
               const bg = claudeErr ? 'rgba(255,71,87,.08)' : fableOn ? 'rgba(255,215,0,.1)' : lockedProOnly ? 'rgba(255,215,0,.06)' : 'rgba(255,255,255,.04)';
               const bd = claudeErr ? 'rgba(255,71,87,.4)' : fableOn ? 'rgba(255,215,0,.45)' : lockedProOnly ? 'rgba(255,215,0,.2)' : 'rgba(255,255,255,.07)';
