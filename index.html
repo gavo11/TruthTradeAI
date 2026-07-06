@@ -628,7 +628,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#ffd700":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null};
 
 function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
 function isPremium(){ return state.tier === 'premium'; }
@@ -658,6 +658,7 @@ function modelTipText(name){
   const meta = MODEL_META[name] || {};
   if (name === 'Claude') {
     const active = state.claudeModelName || 'Claude Haiku 4.5';
+    if (state.claudeError && !state.claudeReanalyzing) return `${state.claudeError}\nTap to choose a model and retry.`;
     if (!isPaid()) return `Active: ${active}\nUpgrade to unlock Claude Fable 5.`;
     const lim = fableLimit(), rem = fableRemaining(), used = Math.max(0, lim - rem), fableOn = state.useFable;
     const cappedNote = (fableOn && rem <= 0) ? `\nToday's Fable 5 uses are used up — next analysis uses Haiku.` : '';
@@ -669,33 +670,52 @@ function modelTipText(name){
 }
 // Open the persistent model popup for a slot (closes on outside click, not on select).
 function openModelPopup(name){ state.modelPopup = name; hideTip(); render(); }
-function closeModelPopup(){ state.modelPopup = null; render(); }
+function closeModelPopup(){ state.modelPopup = null; state.fableConfirm = false; render(); }
 // Choose the Claude slot model. Keeps the popup open so the checkmark updates live;
 // free users are routed to pricing instead.
-// Choose the Claude slot model. For paid users this actually RE-RUNS the Claude
-// analysis with the chosen model (scoped to that one card), showing a loading
-// state on the chip and swapping in the real new result when it returns. Keeps
-// the popup open so the checkmark updates live; free users go to pricing.
-async function selectClaudeModel(useFable){
-  if (!isPaid()) { state.modelPopup = null; showPricingModal(); return; }
-  if (state.useFable === useFable && !state.claudeReanalyzing) {
-    // Already on this model — nothing to re-run.
-    if (!state.aiData[state.ticker]) render();
-    return;
+// Choose the Claude slot model (paid only). Switching to Fable 5 first asks for
+// confirmation (unless the user is at their daily cap, in which case the option
+// is non-clickable). Switching to Haiku re-runs immediately. Free users → pricing.
+// IMPORTANT: gold styling is NEVER applied on click — only after a real, successful
+// Fable 5 response comes back (see runClaudeSwitch, which sets state.useFable from
+// the backend's fableUsed flag).
+function selectClaudeModel(useFable){
+  if (!isPaid()) { state.modelPopup = null; state.fableConfirm = false; showPricingModal(); return; }
+  if (useFable) {
+    if (fableRemaining() <= 0) return; // at daily cap — option is disabled, no confirm, no gold
+    state.fableConfirm = true; render(); // ask before spending a use; still no gold
+  } else {
+    // Switch to Haiku. If already on Haiku with no error, nothing to do.
+    if (!state.useFable && !state.claudeError) { state.modelPopup = null; render(); return; }
+    state.modelPopup = null;
+    runClaudeSwitch(false);
   }
-  state.useFable = useFable;
+}
+
+// Answer the "Use Fable 5?" confirm. Yes → run the real Fable call; No → stay on Haiku.
+function confirmFable(yes){
+  state.fableConfirm = false;
+  state.modelPopup = null;
+  if (yes) runClaudeSwitch(true);
+  else render();
+}
+
+// Actually re-run the Claude slot with the chosen model. Shows a loading state on
+// the Claude card, then EITHER (success) swaps in the real result and lets gold
+// reflect the backend's fableUsed flag, OR (failure/refusal/timeout) shows an
+// error state — never gold, never the stale Haiku numbers.
+async function runClaudeSwitch(useFableModel){
   const ticker = state.ticker;
   const ai = ticker && state.aiData[ticker];
-  render(); // reflect the new selection (checkmark + gold accent) immediately
-  if (!ai) return; // no analysis yet — preference simply applies on next full analyze
-
-  state.claudeReanalyzing = true;
-  render();
+  if (!ai) { render(); return; }
+  state.claudeReanalyzing = true; state.claudeError = null; render();
+  let timedOut = false;
+  const to = setTimeout(() => { timedOut = true; }, 95000);
   try {
     const res = await fetch(`${BACKEND}/api/analyze-model`, {
       method: 'POST',
       headers: await authHeaders(),
-      body: JSON.stringify({ ticker, model: 'claude', useFable })
+      body: JSON.stringify({ ticker, model: 'claude', useFable: useFableModel })
     });
     const json = await res.json().catch(() => ({}));
     if (res.ok && !json.error) {
@@ -703,9 +723,7 @@ async function selectClaudeModel(useFable){
       const idx = models.findIndex(m => m.model === 'Claude');
       const prev = idx >= 0 ? models[idx] : {};
       const updated = {
-        ...prev,
-        model: 'Claude',
-        error: undefined,
+        ...prev, model: 'Claude', error: undefined,
         bullScore: json.bullScore ?? prev.bullScore ?? 50,
         reasoning: json.reasoning ?? prev.reasoning,
         confidence: json.confidence ?? prev.confidence,
@@ -714,32 +732,43 @@ async function selectClaudeModel(useFable){
         bullScore1Y: json.bullScore1Y ?? prev.bullScore1Y
       };
       if (idx >= 0) models[idx] = updated; else models.push(updated);
-      state.claudeModelName = json.claudeModel || state.claudeModelName;
+      // Gold reflects ONLY what the backend actually did — if it fell back to Haiku
+      // (cap hit mid-request) fableUsed is false and gold stays off.
+      state.useFable = !!json.fableUsed;
+      state.claudeModelName = json.claudeModel || (json.fableUsed ? 'Claude Fable 5' : 'Claude Haiku 4.5');
       state.fableRemaining = json.fableRemaining ?? state.fableRemaining;
       state.fableLimit = json.fableLimit ?? state.fableLimit;
+      state.claudeError = null;
     } else {
       console.warn('Claude re-analysis failed:', json.error || res.status);
+      state.claudeError = `${useFableModel ? 'Fable 5' : 'Haiku'} analysis failed. Tap to retry.`;
+      if (useFableModel) state.useFable = false; // never gold on a failed Fable call
     }
   } catch (e) {
     console.warn('Claude re-analysis error:', e);
+    state.claudeError = `${useFableModel ? 'Fable 5' : 'Haiku'} analysis ${timedOut ? 'timed out' : 'failed'}. Tap to retry.`;
+    if (useFableModel) state.useFable = false;
   }
+  clearTimeout(to);
   state.claudeReanalyzing = false;
   render();
 }
 
 // A single selectable option row inside the model popup. `premium` gives it the
-// gold Fable-5 treatment; `active` shows the checkmark; `locked` shows a lock.
+// gold Fable-5 treatment; `active` shows the checkmark; `locked` shows a lock;
+// `disabled` greys it out and makes it non-clickable (e.g. Fable at daily cap).
 function modelOption(o){
+  const dim = o.disabled;
   const accent = o.premium ? '#ffd700' : '#5a9bff';
   const border = o.active ? (o.premium?'rgba(255,215,0,.55)':'rgba(90,155,255,.5)') : 'rgba(255,255,255,.09)';
-  const bg = o.premium
+  const bg = dim ? 'rgba(255,255,255,.02)' : o.premium
     ? (o.active?'linear-gradient(180deg,rgba(255,215,0,.15),rgba(255,215,0,.04))':'linear-gradient(180deg,rgba(255,215,0,.08),rgba(255,215,0,.02))')
     : (o.active?'rgba(90,155,255,.1)':'rgba(255,255,255,.03)');
   const check = o.active
     ? `<span style="color:${accent};font-size:15px;font-weight:800;width:15px;text-align:center">✓</span>`
     : `<span style="display:inline-block;width:15px"></span>`;
   const lock = o.locked ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>` : '';
-  return `<button onclick="${o.onclick||''}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:12px 13px;border-radius:12px;cursor:pointer;background:${bg};border:1.5px solid ${border}">
+  return `<button ${dim?'disabled':''} onclick="${dim?'':(o.onclick||'')}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:12px 13px;border-radius:12px;cursor:${dim?'not-allowed':'pointer'};opacity:${dim?'.5':'1'};background:${bg};border:1.5px solid ${dim?'rgba(255,255,255,.08)':border}">
     ${check}
     <div style="flex:1;min-width:0">
       <div style="display:flex;align-items:center;gap:7px">
@@ -751,21 +780,38 @@ function modelOption(o){
   </button>`;
 }
 
-// Claude popup: Haiku (default) + Fable 5 (gold premium option, daily-capped).
+// Claude popup: Haiku (default) + Fable 5 (gold premium option). At the daily cap,
+// the Fable option is disabled and shows the used/total count (no confirm, no gold).
 function claudePopupRows(){
   const paid = isPaid();
   const lim = fableLimit(), rem = fableRemaining(), used = Math.max(0, lim - rem);
-  const haikuActive = !paid || !state.useFable;
-  const fableActive = paid && state.useFable;
+  const fableActive = paid && state.useFable && !state.claudeError; // gold only when truly active
+  const haikuActive = !fableActive;
+  const capped = paid && rem <= 0 && !fableActive; // no uses left and not currently on Fable
   const goldTag = `<span class="pro-tag" style="font-size:8px;padding:2px 6px">PREMIUM</span>`;
   const haiku = modelOption({ title:'Claude Haiku 4.5', sub:'Default · fast, always available', active:haikuActive, onclick:'selectClaudeModel(false)' });
   let fableSub;
   if (!paid) fableSub = 'Upgrade to unlock';
-  else if (rem <= 0 && fableActive) fableSub = `${used} of ${lim} used today — capped, will use Haiku`;
+  else if (capped) fableSub = `${used} of ${lim} Fable 5 uses today — resets tomorrow`;
   else fableSub = `${used} of ${lim} used today`;
-  const fable = modelOption({ title:'Claude Fable 5', sub:fableSub, active:fableActive, premium:true, locked:!paid, onclick:'selectClaudeModel(true)', badge:goldTag });
+  const fable = modelOption({ title:'Claude Fable 5', sub:fableSub, active:fableActive, premium:true, locked:!paid, disabled:capped, onclick:'selectClaudeModel(true)', badge:goldTag });
   const foot = paid ? '' : `<button onclick="closeModelPopup();showPricingModal()" class="btn-gold" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Unlock Fable 5 with Pro</button>`;
   return haiku + fable + foot;
+}
+
+// The "Use Fable 5 for this analysis?" confirm step, rendered in place of the popup body.
+function fableConfirmCard(){
+  const lim = fableLimit(), rem = fableRemaining(), used = Math.max(0, lim - rem);
+  return `<div onclick="closeModelPopup()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60"></div>
+    <div onclick="event.stopPropagation()" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:340px;max-width:92vw;z-index:70;background:#141b2d;border-radius:18px;border:1px solid rgba(255,215,0,.35);padding:22px;box-shadow:0 30px 80px rgba(0,0,0,.6)">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:8px">
+        <span class="pro-tag" style="font-size:8px;padding:2px 6px">PREMIUM</span>
+        <h3 style="font-size:15px;font-weight:800;color:#fff">Use Claude Fable 5 for this analysis?</h3>
+      </div>
+      <p style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:16px">Fable 5 is a premium reasoning model. This re-runs the Claude analysis and uses <b style="color:#ffd700">1 of your ${lim}</b> daily Fable 5 uses (${used} of ${lim} used today).</p>
+      <button onclick="confirmFable(true)" class="btn-gold" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin-bottom:9px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Yes, use Fable 5</button>
+      <button onclick="confirmFable(false)" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);cursor:pointer">No, stay on Haiku</button>
+    </div>`;
 }
 
 // Popup for the other slots: one model, shown for consistency (future-ready).
@@ -783,6 +829,8 @@ function singleModelRow(name){
 function renderModelPopup(){
   const name = state.modelPopup;
   if (!name) return '';
+  // Confirm step for switching to Fable 5 (shown in place of the model list).
+  if (name === 'Claude' && state.fableConfirm) return fableConfirmCard();
   const meta = MODEL_META[name] || {};
   const rows = name === 'Claude' ? claudePopupRows() : singleModelRow(name);
   return `<div onclick="closeModelPopup()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:60"></div>
@@ -894,6 +942,7 @@ async function analyzeStock() {
   state.expandedNewsItems = {};
   state.usageError = null;
   state.xSent = null; state.xSentError = null; state.xSentLoading = false;
+  state.claudeError = null; state.claudeReanalyzing = false;
   render();
 
   // Safety timeout — never stay stuck loading more than 45 seconds
@@ -933,8 +982,11 @@ async function analyzeStock() {
       state.tier = aiJson.tier || 'free';
       state.usageRemaining = aiJson.usageRemaining ?? state.usageRemaining;
       state.claudeModelName = aiJson.claudeModel || 'Claude Haiku 4.5';
+      // Gold reflects what the backend actually used for the Claude slot this run.
+      if (aiJson.fableUsed !== undefined) state.useFable = !!aiJson.fableUsed;
       state.fableRemaining = aiJson.fableRemaining ?? state.fableRemaining;
       state.fableLimit = aiJson.fableLimit ?? state.fableLimit;
+      state.claudeError = null;
       state.aiData[ticker] = aiJson;
       state.liveData[ticker] = liveDataFromAI(aiJson);
     }
@@ -1097,18 +1149,21 @@ function render(){
               // Every chip is interactive: hover shows the active model, click opens a
               // persistent popup (stays open until an outside click). Only Claude has a
               // second selectable option today; the rest are consistent & future-ready.
-              const fableOn = m.name === 'Claude' && isPaid() && state.useFable;
+              const claudeErr = m.name === 'Claude' && !!state.claudeError && !state.claudeReanalyzing;
+              // Gold is suppressed while an error is showing — never gold without a real success.
+              const fableOn = m.name === 'Claude' && isPaid() && state.useFable && !claudeErr;
               const claudeBusy = m.name === 'Claude' && state.claudeReanalyzing;
-              const accent = fableOn ? '#ffd700' : color;
+              const accent = claudeErr ? '#ff4757' : fableOn ? '#ffd700' : color;
               const display = claudeBusy
                 ? `<span class="pulse-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${fableOn?'#ffd700':'#5a9bff'}"></span>`
+                : claudeErr ? '⚠'
                 : lockedProOnly ? '🔒' : hasScore ? Math.min(99,Math.max(1,m.score+adj))+'%' : (state.loading ? '...' : '—');
               const f5badge = fableOn ? `<span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#ffd700;background:rgba(255,215,0,.14);border:1px solid rgba(255,215,0,.4);padding:1px 5px;border-radius:5px">F5</span>` : '';
               const tipText = modelTipText(m.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-              const bg = fableOn ? 'rgba(255,215,0,.1)' : lockedProOnly ? 'rgba(255,215,0,.06)' : 'rgba(255,255,255,.04)';
-              const bd = fableOn ? 'rgba(255,215,0,.45)' : lockedProOnly ? 'rgba(255,215,0,.2)' : 'rgba(255,255,255,.07)';
-              const dotColor = claudeBusy ? (fableOn?'#ffd700':'#5a9bff') : color;
-              return `<div data-model-chip="${m.name}"${m.name==='Claude'?' data-claude-chip="1"':''} tabindex="0" onclick="openModelPopup('${m.name}')" onmouseenter="showTip(this)" onmouseleave="hideTip()" onfocus="showTip(this)" onblur="hideTip()" data-tip-title="${modelTipTitle(m.name)}" data-tip-text="${tipText}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;cursor:pointer;background:${bg};border:1px solid ${bd}${fableOn?';box-shadow:0 0 0 1px rgba(255,215,0,.15),0 2px 10px rgba(255,215,0,.12)':''}"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};box-shadow:0 0 6px ${hasScore||claudeBusy?dotColor:'transparent'}"></div><span style="font-size:11px;color:${fableOn?'#ffd700':'rgba(255,255,255,.55)'};font-weight:${fableOn?'700':'500'}">${m.name}</span>${f5badge}<span class="tnum" style="font-size:12px;font-weight:800;color:${claudeBusy?(fableOn?'#ffd700':'#5a9bff'):(lockedProOnly&&!fableOn?'#ffd700':accent)}">${display}</span></div>`;
+              const bg = claudeErr ? 'rgba(255,71,87,.08)' : fableOn ? 'rgba(255,215,0,.1)' : lockedProOnly ? 'rgba(255,215,0,.06)' : 'rgba(255,255,255,.04)';
+              const bd = claudeErr ? 'rgba(255,71,87,.4)' : fableOn ? 'rgba(255,215,0,.45)' : lockedProOnly ? 'rgba(255,215,0,.2)' : 'rgba(255,255,255,.07)';
+              const dotColor = claudeBusy ? (fableOn?'#ffd700':'#5a9bff') : claudeErr ? '#ff4757' : color;
+              return `<div data-model-chip="${m.name}"${m.name==='Claude'?' data-claude-chip="1"':''} tabindex="0" onclick="openModelPopup('${m.name}')" onmouseenter="showTip(this)" onmouseleave="hideTip()" onfocus="showTip(this)" onblur="hideTip()" data-tip-title="${modelTipTitle(m.name)}" data-tip-text="${tipText}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;cursor:pointer;background:${bg};border:1px solid ${bd}${fableOn?';box-shadow:0 0 0 1px rgba(255,215,0,.15),0 2px 10px rgba(255,215,0,.12)':''}"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};box-shadow:0 0 6px ${hasScore||claudeBusy||claudeErr?dotColor:'transparent'}"></div><span style="font-size:11px;color:${fableOn?'#ffd700':'rgba(255,255,255,.55)'};font-weight:${fableOn?'700':'500'}">${m.name}</span>${f5badge}<span class="tnum" style="font-size:12px;font-weight:800;color:${claudeBusy?(fableOn?'#ffd700':'#5a9bff'):accent}">${display}</span></div>`;
             }).join('');
           })()}
         </div>
@@ -1129,21 +1184,25 @@ function render(){
           </button>
           ${open ? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
             ${reModels.map(m => {
-              const isClaudeFable = m.model === 'Claude' && isPaid() && state.useFable;
+              const claudeErr = m.model === 'Claude' && !!state.claudeError && !state.claudeReanalyzing;
+              const isClaudeFable = m.model === 'Claude' && isPaid() && state.useFable && !claudeErr;
               const busy = m.model === 'Claude' && state.claudeReanalyzing;
-              const accent = isClaudeFable ? '#ffd700' : '#5a9bff';
-              const label = m.model === 'Claude' ? (isClaudeFable ? 'FABLE 5 · PREMIUM' : 'HAIKU 4.5') : 'PRO ANALYSIS';
+              const accent = claudeErr ? '#ff4757' : isClaudeFable ? '#ffd700' : '#5a9bff';
+              const label = claudeErr ? 'ERROR' : m.model === 'Claude' ? (isClaudeFable ? 'FABLE 5 · PREMIUM' : 'HAIKU 4.5') : 'PRO ANALYSIS';
+              const labelColor = claudeErr ? '#ff4757' : '#ffd700';
               const scoreColor = m.bullScore>=60?'#00c896':m.bullScore>=40?'#ffd700':'#ff4757';
-              const goldPanel = isClaudeFable ? '--accent:#ffd700;border-color:rgba(255,215,0,.4);background:linear-gradient(180deg,rgba(255,215,0,.07),#0b1224);box-shadow:0 0 0 1px rgba(255,215,0,.12),0 8px 24px rgba(0,0,0,.4)' : '';
+              const goldPanel = isClaudeFable ? '--accent:#ffd700;border-color:rgba(255,215,0,.4);background:linear-gradient(180deg,rgba(255,215,0,.07),#0b1224);box-shadow:0 0 0 1px rgba(255,215,0,.12),0 8px 24px rgba(0,0,0,.4)' : claudeErr ? '--accent:#ff4757;border-color:rgba(255,71,87,.4)' : '';
               return `<div class="pro-panel" style="${goldPanel}">
               <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
                 <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:${accent}">${m.model.toUpperCase()}</span>
                 <span style="color:rgba(255,255,255,.25)">·</span>
-                <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:#ffd700">${label}</span>
-                ${busy ? '' : `<span class="tnum" style="margin-left:auto;font-size:11px;font-weight:800;color:${scoreColor}">${m.bullScore}%</span>`}
+                <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:${labelColor}">${label}</span>
+                ${busy || claudeErr ? '' : `<span class="tnum" style="margin-left:auto;font-size:11px;font-weight:800;color:${scoreColor}">${m.bullScore}%</span>`}
               </div>
               ${busy
                 ? `<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:${accent}"></span><span style="font-size:12px;color:rgba(255,255,255,.6)">Re-running with ${state.claudeModelName}…</span></div>`
+                : claudeErr
+                ? `<p style="font-size:12px;color:#ff8c42;line-height:1.7">${state.claudeError}</p>`
                 : `<p style="font-size:12px;color:rgba(255,255,255,.78);line-height:1.7">${m.reasoning}</p>`}
             </div>`;
             }).join('')}
