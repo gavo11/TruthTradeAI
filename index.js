@@ -198,6 +198,79 @@ function withLiveSearch(ticker, searchBlock, prompt) {
   return `Current information from a live web search for ${ticker} (use this for current price, recent news, and dates — it is more up to date than your training data):\n\n${searchBlock}\n\n---\n\n${prompt}`;
 }
 
+// ── Single Claude call (Haiku OR Fable 5), with real error surfacing ──────────
+// Fable 5 (`claude-fable-5`) is a REASONING model: thinking is always on and draws
+// from max_tokens, so a small max_tokens (fine for Haiku) truncates Fable's output
+// to nothing and the JSON parse fails. We give Fable a large budget + low effort
+// (we only need a short JSON verdict) and NEVER send `thinking`/`temperature`
+// (both 400 on Fable). Every failure mode is logged loudly and thrown — nothing is
+// swallowed — so a Fable failure surfaces as a real error instead of a fake success.
+async function callAnthropicMessages(modelId, systemPrompt, userContent, tier) {
+  const isFable = modelId === 'claude-fable-5';
+  const body = {
+    model: modelId,
+    max_tokens: isFable ? 8000 : (tier !== 'free' ? 450 : 250),
+    system: systemPrompt,
+    messages: [{ role: 'user', content: userContent }]
+  };
+  // effort is supported on Fable (reasoning) but 400s on Haiku — only send it for Fable.
+  if (isFable) body.output_config = { effort: 'low' };
+
+  let response, data;
+  try {
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(90000) // Fable can think for a while; cap it
+    });
+  } catch (e) {
+    console.error(`[Claude] ${modelId} request failed (network/timeout): ${e.message}`);
+    throw new Error(`Claude (${modelId}) request failed: ${e.message}`);
+  }
+
+  data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.error) {
+    const detail = JSON.stringify(data.error || data).slice(0, 600);
+    console.error(`[Claude] ${modelId} API error — HTTP ${response.status}: ${detail}`);
+    throw new Error(`Claude (${modelId}) API error (HTTP ${response.status}): ${data?.error?.message || 'unknown'}`);
+  }
+  if (data.stop_reason === 'refusal') {
+    console.error(`[Claude] ${modelId} REFUSED (category=${data.stop_details?.category ?? 'n/a'}) — returning error, not a result`);
+    throw new Error(`Claude (${modelId}) declined this request (${data.stop_details?.category || 'refusal'})`);
+  }
+
+  // COST WATCH: log real token usage per call so the Fable 5 caps can be validated
+  // against actual $. Fable 5 output (INCLUDES thinking tokens) bills at $50/1M,
+  // input at $10/1M; Haiku at $5/$1 per 1M. output_tokens here already covers the
+  // reasoning tokens, so this is the true per-call cost.
+  if (data.usage) {
+    const inTok = data.usage.input_tokens || 0;
+    const outTok = data.usage.output_tokens || 0;
+    const cost = isFable ? (inTok / 1e6 * 10 + outTok / 1e6 * 50) : (inTok / 1e6 * 1 + outTok / 1e6 * 5);
+    console.log(`[Claude][cost] ${modelId} — input=${inTok} output=${outTok} (of ${body.max_tokens} max) → ~$${cost.toFixed(4)} this call`);
+  }
+
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
+  if (!text) {
+    console.error(`[Claude] ${modelId} returned NO text — stop_reason=${data.stop_reason}, output_tokens=${data.usage?.output_tokens}. If stop_reason=max_tokens, max_tokens is too low for this model (thinking consumed the budget).`);
+    throw new Error(`Claude (${modelId}) returned no text (stop_reason=${data.stop_reason})`);
+  }
+
+  const stripped = text.replace(/```json|```/g, '').trim();
+  try {
+    return JSON.parse(extractJSON(stripped));
+  } catch (e) {
+    console.error(`[Claude] ${modelId} JSON parse failed: ${e.message}. Raw text (first 600):`, stripped.slice(0, 600));
+    throw new Error(`Claude (${modelId}) JSON parse failed: ${e.message}`);
+  }
+}
+
 // ── Verify Supabase token and look up the user's membership tier ───────────
 async function getUserTier(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return 'free';
@@ -469,6 +542,91 @@ app.post('/api/x-sentiment', async (req, res) => {
   }
 });
 
+// ── Shared analyst system prompt + detailed (paid) prompt builder ──────────
+// Hoisted so both /api/analyze and the single-model /api/analyze-model endpoint
+// use the exact same prompt (no divergence).
+const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier investment bank with 20 years of experience. You provide rigorous, data-driven stock analysis. You always search for the most recent news, earnings reports, analyst upgrades/downgrades, and sector developments before forming your view. Your analysis is balanced — you identify both genuine opportunities and real risks. You never give generic responses. Every insight must be specific to this company right now.`;
+
+function buildProShortPrompt(ticker) {
+  return `Analyze ${ticker} as a stock investment based on current market conditions, recent news, and fundamentals. Consider the current broader market environment and any recent significant price moves.
+
+Respond ONLY with a valid JSON object — no markdown, no explanation, no backticks. Use exactly these fields:
+{
+  "bullScore": <number 0-100, overall bull conviction — be honest and critical>,
+  "bearScore": <number 0-100, overall bear conviction>,
+  "verdict": <one of: "Strong Buy", "Bullish", "Lean Buy", "Neutral", "Lean Sell", "Bearish", "Strong Sell">,
+  "confidence": <number 0-100, how confident you are>,
+  "bullScore1W": <number 0-100, bull conviction for next 7 days ONLY — weight recent price momentum, current market sentiment, and short-term macro events. Be skeptical if the stock has run hard recently>,
+  "bullScore1M": <number 0-100, bull conviction for next 30 days>,
+  "bullScore1Y": <number 0-100, bull conviction for next 12 months — weight fundamentals and long-term outlook>,
+  "reasoning": <3-4 sentences explaining what you weighted most and why you landed where you did. Write for a smart retail investor with no finance jargon — explain any technical term in plain words the moment you use it. Be specific to this stock right now, not generic boilerplate.>
+}`;
+}
+
+// Run ONLY the Claude slot for a ticker with a specific model. Mirrors the
+// callClaude() inside /api/analyze (Brave live search + detailed pro prompt),
+// standalone so a Haiku↔Fable 5 swap can refresh just that card.
+async function runSingleClaude(ticker, useFableModel) {
+  const modelId = useFableModel ? 'claude-fable-5' : 'claude-haiku-4-5-20251001';
+  let searchBlock = '';
+  try {
+    searchBlock = await braveSearch(`${ticker} stock news today`);
+  } catch (e) {
+    console.warn(`[analyze-model] Brave search failed for ${ticker}: ${e.message} — proceeding without`);
+  }
+  const result = await callAnthropicMessages(
+    modelId,
+    SYSTEM_PROMPT,
+    withLiveSearch(ticker, searchBlock, buildProShortPrompt(ticker)),
+    'pro' // Fable/single-model refresh is paid-only; use the detailed token budget
+  );
+  return { ...result, model: 'Claude' };
+}
+
+// POST /api/analyze-model — re-run a single model card (currently only the Claude
+// slot, for a Haiku↔Fable 5 swap). Applies the same Fable daily-cap + silent
+// Haiku fallback as /api/analyze, but does NOT touch the daily *analysis* cap —
+// this is a scoped single-model refresh, not a new full analysis.
+app.post('/api/analyze-model', async (req, res) => {
+  const { ticker, model } = req.body || {};
+  if (!ticker) return res.status(400).json({ error: 'ticker required' });
+  if (model && model !== 'claude') return res.status(400).json({ error: 'unsupported_model' });
+  const tier = await getUserTier(req.headers['authorization']);
+  const userId = await getUserId(req.headers['authorization']);
+  const fableLimit = TIER_FABLE_LIMIT[tier] || 0;
+  const fableId = `fable:${getRequestIdentifier(req, userId)}`;
+  const wantsFable = req.body?.useFable === true && tier !== 'free' && fableLimit > 0;
+  let useFableModel = false;
+  let fableRemaining;
+  if (wantsFable) {
+    const fableUsage = await checkAndIncrementUsage(fableId, fableLimit);
+    useFableModel = fableUsage.allowed;
+    fableRemaining = fableUsage.remaining;
+  } else {
+    fableRemaining = Math.max(0, fableLimit - await getUsageCount(fableId));
+  }
+  try {
+    const result = await runSingleClaude(String(ticker).toUpperCase(), useFableModel);
+    res.json({
+      model: 'Claude',
+      bullScore: result.bullScore ?? 50,
+      reasoning: result.reasoning || null,
+      confidence: result.confidence ?? null,
+      bullScore1W: result.bullScore1W ?? null,
+      bullScore1M: result.bullScore1M ?? null,
+      bullScore1Y: result.bullScore1Y ?? null,
+      claudeModel: useFableModel ? 'Claude Fable 5' : 'Claude Haiku 4.5',
+      fableUsed: useFableModel,
+      fableRemaining,
+      fableLimit,
+      tier
+    });
+  } catch (e) {
+    console.error(`[analyze-model] ${ticker} failed:`, e.message);
+    res.status(500).json({ error: e.message, tier });
+  }
+});
+
 app.post('/api/analyze', async (req, res) => {
   const { ticker } = req.body;
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
@@ -509,7 +667,7 @@ app.post('/api/analyze', async (req, res) => {
   const claudeModelId = useFableModel ? 'claude-fable-5' : 'claude-haiku-4-5-20251001';
   const claudeModelName = useFableModel ? 'Claude Fable 5' : 'Claude Haiku 4.5';
 
-  const systemPrompt = `You are a senior equity research analyst at a top-tier investment bank with 20 years of experience. You provide rigorous, data-driven stock analysis. You always search for the most recent news, earnings reports, analyst upgrades/downgrades, and sector developments before forming your view. Your analysis is balanced — you identify both genuine opportunities and real risks. You never give generic responses. Every insight must be specific to this company right now.`;
+  const systemPrompt = SYSTEM_PROMPT;
 
   const geminiPrompt = `Search the web for the latest information on ${ticker} and analyze it as a stock investment. Find the most current live market data available.
 
@@ -565,19 +723,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   "bullScore1Y": <number 0-100, bull conviction for next 12 months — weight fundamentals and long-term outlook>
 }`;
 
-  const proShortPrompt = `Analyze ${ticker} as a stock investment based on current market conditions, recent news, and fundamentals. Consider the current broader market environment and any recent significant price moves.
-
-Respond ONLY with a valid JSON object — no markdown, no explanation, no backticks. Use exactly these fields:
-{
-  "bullScore": <number 0-100, overall bull conviction — be honest and critical>,
-  "bearScore": <number 0-100, overall bear conviction>,
-  "verdict": <one of: "Strong Buy", "Bullish", "Lean Buy", "Neutral", "Lean Sell", "Bearish", "Strong Sell">,
-  "confidence": <number 0-100, how confident you are>,
-  "bullScore1W": <number 0-100, bull conviction for next 7 days ONLY — weight recent price momentum, current market sentiment, and short-term macro events. Be skeptical if the stock has run hard recently>,
-  "bullScore1M": <number 0-100, bull conviction for next 30 days>,
-  "bullScore1Y": <number 0-100, bull conviction for next 12 months — weight fundamentals and long-term outlook>,
-  "reasoning": <3-4 sentences explaining what you weighted most and why you landed where you did. Write for a smart retail investor with no finance jargon — explain any technical term in plain words the moment you use it. Be specific to this stock right now, not generic boilerplate.>
-}`;
+  const proShortPrompt = buildProShortPrompt(ticker);
 
   const gptClaudePrompt = tier !== 'free' ? proShortPrompt : shortPrompt;
 
@@ -679,25 +825,13 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
 
   async function callClaude(modelId) {
     const searchBlock = await searchPromise;
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
-      },
-      body: JSON.stringify({
-        model: modelId,
-        max_tokens: tier !== 'free' ? 450 : 250,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: withLiveSearch(ticker, searchBlock, gptClaudePrompt) }]
-      })
-    });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    const text = data.content?.filter(b => b.type === 'text').map(b => b.text).join('') || '';
-    const stripped = text.replace(/```json|```/g, '').trim();
-    return { ...JSON.parse(extractJSON(stripped)), model: 'Claude' };
+    const result = await callAnthropicMessages(
+      modelId,
+      systemPrompt,
+      withLiveSearch(ticker, searchBlock, gptClaudePrompt),
+      tier
+    );
+    return { ...result, model: 'Claude' };
   }
 
   async function callPerplexity() {
