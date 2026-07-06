@@ -12,6 +12,17 @@ const TIER_XSENT_LIMIT = { free: 0, pro: 2, premium: 4 };
 const TIER_SAVED_LIMIT = { free: 2, pro: 10, premium: Infinity };
 const TIER_FABLE_LIMIT = { free: 0, pro: 1, premium: 5 };
 
+// ── Per-model output token budgets (tune here; every token is billed) ──────────
+// Paid Claude uses buildProShortPrompt (has a `reasoning` field) + Brave live context,
+// which pushed the reasoning past the old 450 ceiling and truncated the JSON mid-string.
+// 650 gives headroom above that overflow while staying tight (raise only if the
+// [Claude][cost] log shows output hitting this ceiling).
+const HAIKU_MAX_TOKENS = 650;       // paid Haiku (proShortPrompt + live context)
+const HAIKU_FREE_MAX_TOKENS = 250;  // free Haiku (shortPrompt — no reasoning field)
+// Real Fable 5 usage measured ~392 output tokens (~$0.033/call). 2200 is generous
+// headroom (~5.5x actual) while capping worst-case cost far below the old 8000.
+const FABLE_MAX_TOKENS = 2200;
+
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 
 // ── Stripe Webhook — MUST come before express.json(), needs raw body for signature verification ──
@@ -209,7 +220,7 @@ async function callAnthropicMessages(modelId, systemPrompt, userContent, tier) {
   const isFable = modelId === 'claude-fable-5';
   const body = {
     model: modelId,
-    max_tokens: isFable ? 8000 : (tier !== 'free' ? 450 : 250),
+    max_tokens: isFable ? FABLE_MAX_TOKENS : (tier !== 'free' ? HAIKU_MAX_TOKENS : HAIKU_FREE_MAX_TOKENS),
     system: systemPrompt,
     messages: [{ role: 'user', content: userContent }]
   };
