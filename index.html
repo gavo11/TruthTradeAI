@@ -9,12 +9,12 @@
   :root {
     --bg:#0a0f1e; --surface:#141b2d; --surface-2:#0d1426; --surface-3:#0b1224;
     --line:rgba(255,255,255,.07); --brand:#3d85ff; --bull:#00c896; --bear:#ff4757;
-    --gold:#ffd700; --gold-deep:#f0b90b;
+    --gold:#ffd700; --gold-deep:#f0b90b; --amber:#e3b341; /* amber = neutral DATA states (Hold/Fair/Mixed); gold = PREMIUM only */
     --text-2:rgba(255,255,255,.65); --text-3:rgba(255,255,255,.4); --text-4:rgba(255,255,255,.28);
     --radius:16px; --radius-sm:10px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0f1e; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-size: 14px; letter-spacing: -.01em; }
+  body { background: #0a0f1e; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-size: 15px; letter-spacing: -.01em; }
   ::selection { background: rgba(61,133,255,.32); color:#fff; }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -33,7 +33,7 @@
     width: 18px; height: 18px; border-radius: 50%;
     border: 2px solid #3d85ff;
     background: #3d85ff; color: #fff;
-    font-size: 11px; font-weight: 900; cursor: pointer;
+    font-size: 11.5px; font-weight: 900; cursor: pointer;
     margin-left: 7px; vertical-align: middle;
     transition: all .2s; flex-shrink: 0;
     font-family: Georgia, serif; font-style: italic;
@@ -50,7 +50,7 @@
     border: 1px solid rgba(61,133,255,.4);
     border-radius: 10px;
     padding: 12px 14px;
-    font-size: 11px;
+    font-size: 11.5px;
     color: rgba(255,255,255,.75);
     line-height: 1.6;
     z-index: 99999;
@@ -63,7 +63,7 @@
   }
   #tt-tooltip.visible { display: block; }
   #tt-tooltip-title {
-    font-size: 11px; font-weight: 700; color: #5a9bff;
+    font-size: 11.5px; font-weight: 700; color: #5a9bff;
     margin-bottom: 5px; letter-spacing: 0.05em;
   }
   #tt-tooltip-body { white-space: pre-line; }
@@ -74,12 +74,12 @@
 
   .pro-tag { display:inline-flex; align-items:center; font-size:9px; font-weight:800; letter-spacing:.06em; color:#0a0f1e; background:linear-gradient(180deg,#ffe566,#f0b90b); padding:3px 7px; border-radius:6px; line-height:1; }
 
-  .pro-pill { display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:999px; font-size:12px; font-weight:600; color:#fff; background:var(--pp-bg,linear-gradient(180deg,rgba(61,133,255,.2),rgba(61,133,255,.08))); border:1px solid var(--pp-bd,rgba(61,133,255,.4)); box-shadow:0 2px 10px rgba(0,0,0,.3); cursor:pointer; font-family:inherit; line-height:1.1; transition:transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+  .pro-pill { display:inline-flex; align-items:center; gap:7px; padding:6px 13px; border-radius:999px; font-size:11.5px; font-weight:600; color:#fff; background:var(--pp-bg,linear-gradient(180deg,rgba(61,133,255,.2),rgba(61,133,255,.08))); border:1px solid var(--pp-bd,rgba(61,133,255,.4)); box-shadow:0 2px 10px rgba(0,0,0,.3); cursor:pointer; font-family:inherit; line-height:1.1; transition:transform .15s ease, box-shadow .15s ease, filter .15s ease; }
   .pro-pill:hover { transform:translateY(-1px); box-shadow:0 5px 16px rgba(0,0,0,.38); filter:brightness(1.08); }
   .pro-pill .dot { width:7px; height:7px; border-radius:50%; background:var(--pp-dot,#3d85ff); box-shadow:0 0 8px var(--pp-dot,#3d85ff); flex-shrink:0; }
   .pro-pill .chev { font-size:10px; opacity:.6; }
 
-  .pro-lock { display:inline-flex; align-items:center; gap:8px; padding:6px 9px 6px 13px; border-radius:999px; font-size:12px; font-weight:600; color:#ffd700; background:linear-gradient(180deg,rgba(255,215,0,.16),rgba(255,215,0,.05)); border:1px solid rgba(255,215,0,.42); box-shadow:0 0 0 1px rgba(255,215,0,.05), 0 6px 18px rgba(120,90,0,.16); cursor:pointer; font-family:inherit; line-height:1.1; transition:transform .15s ease, box-shadow .15s ease; }
+  .pro-lock { display:inline-flex; align-items:center; gap:8px; padding:6px 9px 6px 13px; border-radius:999px; font-size:11.5px; font-weight:600; color:#ffd700; background:linear-gradient(180deg,rgba(255,215,0,.16),rgba(255,215,0,.05)); border:1px solid rgba(255,215,0,.42); box-shadow:0 0 0 1px rgba(255,215,0,.05), 0 6px 18px rgba(120,90,0,.16); cursor:pointer; font-family:inherit; line-height:1.1; transition:transform .15s ease, box-shadow .15s ease; }
   .pro-lock:hover { transform:translateY(-1px); box-shadow:0 0 0 1px rgba(255,215,0,.12), 0 8px 22px rgba(120,90,0,.26); }
 
   .pro-panel { position:relative; background:#0b1224; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:13px 15px 13px 16px; box-shadow:0 8px 24px rgba(0,0,0,.4); overflow:hidden; text-align:left; }
@@ -125,15 +125,15 @@
   @media (max-width: 440px) {
     h1 { font-size: 26px !important; }
     nav > div { padding: 0 12px !important; }
-    .nav-btn, .btn-gold { padding: 7px 11px !important; font-size: 12px !important; }
+    .nav-btn, .btn-gold { padding: 7px 11px !important; font-size: 11.5px !important; }
     .nav-actions { gap: 8px !important; }
-    .nav-brand { font-size: 14px !important; }
+    .nav-brand { font-size: 15px !important; }
     .wl-label { display: none !important; }
     .card { padding: 16px 14px !important; }
     .donut-wrap { width: 150px !important; height: 150px !important; margin-bottom: 12px !important; }
     .donut-wrap svg { width: 150px !important; height: 150px !important; }
     .donut-wrap .tnum { font-size: 34px !important; }
-    .seg-btn { padding: 6px 9px !important; font-size: 10.5px !important; }
+    .seg-btn { padding: 6px 9px !important; font-size: 10px !important; }
     .clegend { margin-top: 10px !important; padding-top: 10px !important; }
   }
 </style>
@@ -583,10 +583,10 @@ function getStock(t){
     stockSentimentScore: 50, sectorSentimentScore: 50,
     entrySignal: null, sentimentAnalysis: null,
     momentum: {"1D":50,"1W":50,"1M":50,"1Y":50},
-    bullCase: 'AI analysis loading — please wait.',
-    bearCase: 'AI analysis loading — please wait.',
-    bullCatalysts: ['Analysis in progress...'],
-    bearRisks: ['Analysis in progress...'],
+    bullCase: 'Run an analysis to see the bull case.',
+    bearCase: 'Run an analysis to see the bear case.',
+    bullCatalysts: ['Run an analysis to see catalysts.'],
+    bearRisks: ['Run an analysis to see risks.'],
     news: [],
     aiModels: [
       {name:"Claude", lean:"neutral", score:50},
@@ -601,7 +601,7 @@ function getStock(t){
   return mergeAIData(merged, ai);
 }
 function leanColor(l){return l==="bull"?"#00c896":l==="bear"?"#ff4757":"#94a3b8";}
-function tagStyle(tag){return{EARNINGS:{c:"#3d85ff",bg:"rgba(61,133,255,.15)"},NEWS:{c:"#94a3b8",bg:"rgba(148,163,184,.1)"},DIVIDEND:{c:"#00c896",bg:"rgba(0,200,150,.12)"},EVENT:{c:"#ffd700",bg:"rgba(255,215,0,.1)"}}[tag]||{c:"#94a3b8",bg:"rgba(148,163,184,.1)"};}
+function tagStyle(tag){return{EARNINGS:{c:"#3d85ff",bg:"rgba(61,133,255,.15)"},NEWS:{c:"#94a3b8",bg:"rgba(148,163,184,.1)"},DIVIDEND:{c:"#00c896",bg:"rgba(0,200,150,.12)"},EVENT:{c:"#e3b341",bg:"rgba(227,179,65,.1)"}}[tag]||{c:"#94a3b8",bg:"rgba(148,163,184,.1)"};}
 function getConsensus(base, riskProfile, riskTolerance) {
   const adj = getRiskAdjustment(riskProfile, riskTolerance);
   const score = Math.min(99, Math.max(1, base + adj));
@@ -613,7 +613,7 @@ function getVerdict(score) {
   if (score >= 70) return { text: "Bullish",      color: "#00c896", bg: "rgba(0,200,150,.10)" };
   if (score >= 55) return { text: "Lean Buy",     color: "#90ee90", bg: "rgba(144,238,144,.10)" };
   if (score >= 45) return { text: "Neutral",      color: "#94a3b8", bg: "rgba(148,163,184,.10)" };
-  if (score >= 31) return { text: "Lean Sell",    color: "#ffd700", bg: "rgba(255,215,0,.10)" };
+  if (score >= 31) return { text: "Lean Sell",    color: "#e3b341", bg: "rgba(227,179,65,.10)" };
   if (score >= 16) return { text: "Bearish",      color: "#ff4757", bg: "rgba(255,71,87,.10)" };
   return               { text: "Strong Sell",  color: "#ff4757", bg: "rgba(255,71,87,.15)" };
 }
@@ -626,9 +626,9 @@ function getMomentumScore(stock, tf){
   return stock.pricePosition || 50;
 }
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
-function momentumColor(s){ return s>=65?"#00c896":s>=50?"#ffd700":s>=35?"#ff8c42":"#ff4757"; }
+function momentumColor(s){ return s>=65?"#00c896":s>=50?"#e3b341":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null};
 
 function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
 function isPremium(){ return state.tier === 'premium'; }
@@ -774,7 +774,7 @@ function modelOption(o){
       <div style="display:flex;align-items:center;gap:7px">
         <span style="font-size:13px;font-weight:800;color:#fff">${o.title}</span>${o.badge||''}
       </div>
-      ${o.sub?`<div style="font-size:10.5px;color:rgba(255,255,255,.5);margin-top:2px">${o.sub}</div>`:''}
+      ${o.sub?`<div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">${o.sub}</div>`:''}
     </div>
     ${lock}
   </button>`;
@@ -795,7 +795,7 @@ function claudePopupRows(){
   else if (capped) fableSub = `${used} of ${lim} Fable 5 uses today — resets tomorrow`;
   else fableSub = `Anthropic's most powerful reasoning model · ${used} of ${lim} used today`;
   const fable = modelOption({ title:'✦ Claude Fable 5', sub:fableSub, active:fableActive, premium:true, locked:!paid, disabled:capped, onclick:'selectClaudeModel(true)', badge:goldTag });
-  const foot = paid ? '' : `<button onclick="closeModelPopup();showPricingModal()" class="btn-gold" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Unlock Fable 5 with Pro</button>`;
+  const foot = paid ? '' : `<button onclick="closeModelPopup();showPricingModal()" class="btn-gold" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Unlock Fable 5 with Pro</button>`;
   return haiku + fable + foot;
 }
 
@@ -808,7 +808,7 @@ function fableConfirmCard(){
         <span class="pro-tag" style="font-size:8px;padding:2px 6px">PREMIUM</span>
         <h3 style="font-size:15px;font-weight:800;color:#fff">Use Claude Fable 5 for this analysis?</h3>
       </div>
-      <p style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:16px">Fable 5 is a premium reasoning model. This re-runs the Claude analysis and uses <b style="color:#ffd700">1 of your ${lim}</b> daily Fable 5 uses (${used} of ${lim} used today).</p>
+      <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:16px">Fable 5 is a premium reasoning model. This re-runs the Claude analysis and uses <b style="color:#ffd700">1 of your ${lim}</b> daily Fable 5 uses (${used} of ${lim} used today).</p>
       <button onclick="confirmFable(true)" class="btn-gold" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin-bottom:9px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Yes, use Fable 5</button>
       <button onclick="confirmFable(false)" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);cursor:pointer">No, stay on Haiku</button>
     </div>`;
@@ -820,8 +820,8 @@ function singleModelRow(name){
   const locked = meta.proOnly && !isPaid();
   const row = modelOption({ title:activeModelName(name), sub: locked?'Pro feature — upgrade to enable':'Active for this slot', active:!locked, locked, onclick: locked?'closeModelPopup();showPricingModal()':'' });
   const foot = locked
-    ? `<button onclick="closeModelPopup();showPricingModal()" class="btn-gold" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Unlock with Pro</button>`
-    : `<p style="font-size:10.5px;color:rgba(255,255,255,.35);text-align:center;margin-top:2px">One model powers this slot.</p>`;
+    ? `<button onclick="closeModelPopup();showPricingModal()" class="btn-gold" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Unlock with Pro</button>`
+    : `<p style="font-size:10px;color:rgba(255,255,255,.35);text-align:center;margin-top:2px">One model powers this slot.</p>`;
   return row + foot;
 }
 
@@ -839,7 +839,7 @@ function renderModelPopup(){
         <h3 style="font-size:15px;font-weight:800;color:#fff">${name} model</h3>
         <button onclick="closeModelPopup()" style="background:transparent;color:rgba(255,255,255,.4);font-size:20px;border:none;cursor:pointer;line-height:1">×</button>
       </div>
-      <p style="font-size:11px;color:rgba(255,255,255,.42);margin-bottom:15px">${meta.provider||''}${meta.provider?' · ':''}${meta.desc||''}</p>
+      <p style="font-size:11.5px;color:rgba(255,255,255,.42);margin-bottom:15px">${meta.provider||''}${meta.provider?' · ':''}${meta.desc||''}</p>
       <div style="display:flex;flex-direction:column;gap:10px">${rows}</div>
     </div>`;
 }
@@ -849,18 +849,18 @@ function renderModelPopup(){
 function fablePromoBanner(){
   if (state.tier !== 'free') return '';
   return `<div class="fade-in" style="max-width:560px;margin:-6px auto 24px">
-    <div onclick="showPricingModal()" style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,rgba(255,215,0,.09),rgba(255,215,0,.02) 55%,rgba(61,133,255,.05));border:1px solid rgba(255,215,0,.28);box-shadow:0 0 0 1px rgba(255,215,0,.04), 0 10px 28px -12px rgba(0,0,0,.55)">
-      <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(180deg,rgba(255,215,0,.2),rgba(255,215,0,.06));border:1px solid rgba(255,215,0,.35);color:#ffd700;font-size:14px;flex-shrink:0">✦</span>
+    <div role="button" tabindex="0" onclick="showPricingModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPricingModal()}" style="display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:14px;cursor:pointer;background:linear-gradient(135deg,rgba(255,215,0,.09),rgba(255,215,0,.02) 55%,rgba(61,133,255,.05));border:1px solid rgba(255,215,0,.28);box-shadow:0 0 0 1px rgba(255,215,0,.04), 0 10px 28px -12px rgba(0,0,0,.55)">
+      <span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:10px;background:linear-gradient(180deg,rgba(255,215,0,.2),rgba(255,215,0,.06));border:1px solid rgba(255,215,0,.35);color:#ffd700;font-size:15px;flex-shrink:0">✦</span>
       <div style="flex:1;min-width:0;text-align:left">
-        <p style="font-size:12.5px;font-weight:800;color:#fff;letter-spacing:-.01em">Claude Fable 5 <span class="pro-tag" style="font-size:8px;padding:2px 6px;margin-left:5px;vertical-align:1px">PRO</span></p>
-        <p style="font-size:11px;color:rgba(255,255,255,.5);margin-top:2px">Anthropic's most powerful reasoning model — swap it into your Claude slot.</p>
+        <p style="font-size:13px;font-weight:800;color:#fff;letter-spacing:-.01em">Claude Fable 5 <span class="pro-tag" style="font-size:8px;padding:2px 6px;margin-left:5px;vertical-align:1px">PRO</span></p>
+        <p style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:2px">Anthropic's most powerful reasoning model — swap it into your Claude slot.</p>
       </div>
-      <span class="btn-gold" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;white-space:nowrap;flex-shrink:0;box-shadow:0 4px 12px rgba(240,185,11,.28)">Try Fable 5</span>
+      <span class="btn-gold" style="padding:7px 14px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;white-space:nowrap;flex-shrink:0;box-shadow:0 4px 12px rgba(240,185,11,.28)">Try Fable 5</span>
     </div>
   </div>`;
 }
 
-function featLine(text, cColor, tColor){ return `<div style="display:flex;align-items:flex-start;gap:7px"><span style="color:${cColor};font-size:12px;margin-top:1px;flex-shrink:0">✓</span><span style="font-size:11.5px;color:${tColor};line-height:1.45">${text}</span></div>`; }
+function featLine(text, cColor, tColor){ return `<div style="display:flex;align-items:flex-start;gap:7px"><span style="color:${cColor};font-size:11.5px;margin-top:1px;flex-shrink:0">✓</span><span style="font-size:11.5px;color:${tColor};line-height:1.45">${text}</span></div>`; }
 
 function infoBtn(tooltipTitle, tooltipText) {
   const safeTitle = tooltipTitle.replace(/'/g, "&#39;");
@@ -906,7 +906,7 @@ function donutSVG(bull,score,label,loading){
 
 function analystSVG(rating){
   const r=50,sw=9,C=2*Math.PI*r,filled=(rating/10)*C;
-  const color=rating>=7?"#00c896":rating>=5?"#ffd700":"#ff4757";
+  const color=rating>=7?"#00c896":rating>=5?"#e3b341":"#ff4757";
   return `<svg width="120" height="120" style="transform:rotate(-90deg)">
     <defs><filter id="aGlow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="2.5" flood-color="${color}" flood-opacity="0.55"/></filter></defs>
     <circle cx="60" cy="60" r="${r}" fill="none" stroke="#1b2438" stroke-width="${sw}"/>
@@ -924,7 +924,7 @@ function momentumSVG(score){
   const angle=(score/100)*180;
   const nx=85+48*Math.cos(toRad(180+angle)),ny=90+48*Math.sin(toRad(180+angle));
   const arc=(s,e,r,cx,cy)=>{const x1=cx+r*Math.cos(toRad(s)),y1=cy+r*Math.sin(toRad(s)),x2=cx+r*Math.cos(toRad(e)),y2=cy+r*Math.sin(toRad(e));return`M ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2}`;};
-  const segs=[{s:180,e:216,c:"#ff4757"},{s:216,e:252,c:"#ff8c42"},{s:252,e:288,c:"#ffd700"},{s:288,e:324,c:"#90ee90"},{s:324,e:360,c:"#00c896"}];
+  const segs=[{s:180,e:216,c:"#ff4757"},{s:216,e:252,c:"#ff8c42"},{s:252,e:288,c:"#e3b341"},{s:288,e:324,c:"#90ee90"},{s:324,e:360,c:"#00c896"}];
   return `<svg width="170" height="100" viewBox="0 0 170 100">
     ${segs.map(({s,e,c})=>`<path d="${arc(s,e,55,85,90)}" stroke="${c}" stroke-width="8" fill="none" stroke-linecap="butt" opacity=".3"/>`).join('')}
     <path d="${arc(180,180+angle,55,85,90)}" stroke="${color}" stroke-width="8" fill="none" stroke-linecap="round"/>
@@ -942,8 +942,8 @@ function fmtSavedDate(iso) {
 function proOverlay(){
   return `<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;z-index:10;backdrop-filter:blur(10px);background:rgba(10,15,30,.75)">
     <span style="font-size:10px;font-weight:700;color:#ffd700;letter-spacing:0.12em;margin-bottom:8px">PRO FEATURE</span>
-    <p style="color:rgba(255,255,255,.7);font-size:12px;margin-bottom:14px">Unlock with TrueTrade Pro</p>
-    <button onclick="showPricingModal()" style="padding:8px 18px;border-radius:10px;font-size:12px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Upgrade to Pro</button>
+    <p style="color:rgba(255,255,255,.7);font-size:11.5px;margin-bottom:14px">Unlock with TrueTrade Pro</p>
+    <button onclick="showPricingModal()" style="padding:8px 18px;border-radius:10px;font-size:11.5px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Upgrade to Pro</button>
   </div>`;
 }
 
@@ -960,10 +960,15 @@ async function analyzeStock() {
   state.usageError = null;
   state.xSent = null; state.xSentError = null; state.xSentLoading = false;
   state.claudeError = null; state.claudeReanalyzing = false;
+  state.analyzeError = null;
   render();
 
-  // Safety timeout — never stay stuck loading more than 45 seconds
+  // Safety timeout — never stay stuck loading more than 45 seconds. Surface a
+  // visible error instead of silently dropping the spinner (looks broken otherwise).
   const loadingTimeout = setTimeout(() => {
+    if (state.loading && !state.aiData[ticker]) {
+      state.analyzeError = 'Analysis timed out — please try again.';
+    }
     state.loading = false;
     render();
   }, 45000);
@@ -1006,9 +1011,13 @@ async function analyzeStock() {
       state.claudeError = null;
       state.aiData[ticker] = aiJson;
       state.liveData[ticker] = liveDataFromAI(aiJson);
+    } else {
+      // Backend responded but with an error / no usable data.
+      state.analyzeError = 'Analysis failed — please try again.';
     }
   } catch(e) {
     console.warn('AI analysis failed:', e);
+    if (!state.aiData[ticker]) state.analyzeError = 'Analysis failed — please try again.';
   }
 
   clearTimeout(loadingTimeout);
@@ -1035,7 +1044,7 @@ async function analyzeXSentiment() {
     const score = json.score ?? 50;
     state.xSent = { ticker, score, summary: json.summary || null,
       label: score >= 65 ? 'Bullish' : score <= 35 ? 'Bearish' : 'Mixed',
-      color: score >= 65 ? '#00c896' : score <= 35 ? '#ff4757' : '#ffd700' };
+      color: score >= 65 ? '#00c896' : score <= 35 ? '#ff4757' : '#e3b341' };
     state.xSentRemaining = json.xSentRemaining ?? state.xSentRemaining;
   } catch (e) {
     console.warn('X-Sentiment failed:', e);
@@ -1067,22 +1076,22 @@ function render(){
     <nav style="position:sticky;top:0;z-index:50;background:rgba(10,15,30,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.07);height:56px">
       <div style="max-width:900px;margin:0 auto;padding:0 16px;height:100%;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="state.ticker='';state.searchInput='';render()">
-          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;letter-spacing:.02em;box-shadow:0 4px 14px rgba(61,133,255,.4), inset 0 1px 0 rgba(255,255,255,.25)">TT</div>
+          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:900;letter-spacing:.02em;box-shadow:0 4px 14px rgba(61,133,255,.4), inset 0 1px 0 rgba(255,255,255,.25)">TT</div>
           <span class="nav-brand" style="font-weight:800;font-size:16px;color:#fff;letter-spacing:-.02em">TrueTrade<span style="color:#5a9bff">AI</span></span>
         </div>
         <div class="nav-actions" style="display:flex;align-items:center;gap:9px">
-          <button onclick="state.watchlistOpen=true;render()" class="nav-btn" style="position:relative;padding:8px 14px;border-radius:10px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer;display:flex;align-items:center;gap:7px">
-            <span style="color:#ffd700;font-size:13px">★</span><span class="wl-label">Watchlist</span>
+          <button onclick="state.watchlistOpen=true;render()" class="nav-btn" style="position:relative;padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer;display:flex;align-items:center;gap:7px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffd700" stroke="none" style="flex-shrink:0"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg><span class="wl-label">Watchlist</span>
             ${state.savedAnalyses.length > 0 ? `<span style="position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#4a90ff,#2f6fe0);color:#fff;font-size:9px;font-weight:700;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(61,133,255,.5)">${state.savedAnalyses.length}</span>` : ''}
           </button>
           ${state.tier==='free'
-            ? `<button onclick="showPricingModal()" class="btn-gold" style="padding:8px 15px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Upgrade</button>`
+            ? `<button onclick="showPricingModal()" class="btn-gold" style="padding:8px 15px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Upgrade</button>`
             : state.tier==='pro'
-              ? `<a href="pricing.html" style="padding:8px 15px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(122,90,248,.35);text-decoration:none;display:inline-flex;align-items:center">Premium</a>`
+              ? `<a href="pricing.html" style="padding:8px 15px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(122,90,248,.35);text-decoration:none;display:inline-flex;align-items:center">Premium</a>`
               : ''}
           ${currentUser
-            ? `<button onclick="state.authModal=true;render()" class="btn-primary" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 12px rgba(61,133,255,.35)">&#128100;</button>`
-            : `<button onclick="state.authModal=true;state.authMode='login';render()" class="nav-btn" style="padding:8px 14px;border-radius:10px;font-size:12.5px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer">Sign In</button>`
+            ? `<button onclick="state.authModal=true;render()" class="btn-primary" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);border:1px solid rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 12px rgba(61,133,255,.35)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/></svg></button>`
+            : `<button onclick="state.authModal=true;state.authMode='login';render()" class="nav-btn" style="padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer">Sign In</button>`
           }
         </div>
       </div>
@@ -1103,21 +1112,29 @@ function render(){
             onkeydown="if(event.key==='Enter'){analyzeStock()}"/>
           <button onclick="analyzeStock()" class="btn-primary" style="margin:7px;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze</button>
         </div>
-        <p style="font-size:12.5px;color:rgba(255,255,255,.4);margin-top:16px">Multi-AI consensus analysis for smarter investing${(()=>{
+        <p style="font-size:13px;color:rgba(255,255,255,.4);margin-top:16px">Multi-AI consensus analysis for smarter investing</p>
+        ${(()=>{
+          // Free-tier usage counter: its own quiet pill instead of a 4-color sentence.
+          // Amber dot = uses left (data state), red = none; upgrade link stays quiet blue
+          // so the gold Fable banner below remains the one premium CTA in the hero.
           if (isPaid()) return '';
-          if (state.usageRemaining === null) {
-            return ' · <span style="color:#ffd700">3 free analyses per day</span> — <span style="color:#3d85ff;cursor:pointer" onclick="showPricingModal()">Upgrade for unlimited</span>';
-          }
-          const remainingColor = state.usageRemaining === 0 ? '#ff4757' : '#ffd700';
-          const remainingText = state.usageRemaining === 0
-            ? 'No free analyses left today'
-            : `${state.usageRemaining} ${state.usageRemaining === 1 ? 'analysis' : 'analyses'} left today`;
-          return ` · <span style="color:${remainingColor}">${remainingText}</span> <span style="color:rgba(255,255,255,.25)">(resets at 12:00 AM UTC)</span> — <span style="color:#3d85ff;cursor:pointer" onclick="showPricingModal()">Upgrade for unlimited</span>`;
-        })()}</p>
+          const rem = state.usageRemaining;
+          const zero = rem === 0;
+          const dot = zero ? '#ff4757' : '#e3b341';
+          const txt = rem === null ? '3 free analyses per day'
+            : zero ? 'No free analyses left today'
+            : `${rem} ${rem === 1 ? 'analysis' : 'analyses'} left today`;
+          const resets = rem === null ? '' : `<span style="color:rgba(255,255,255,.25);font-size:10px">· resets 12 AM UTC</span>`;
+          return `<div style="display:inline-flex;align-items:center;gap:11px;margin-top:11px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
+            <span style="display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:rgba(255,255,255,.55)"><span style="width:6px;height:6px;border-radius:50%;background:${dot};box-shadow:0 0 6px ${dot}"></span>${txt} ${resets}</span>
+            <span style="width:1px;height:12px;background:rgba(255,255,255,.12)"></span>
+            <span role="button" tabindex="0" onclick="showPricingModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPricingModal()}" style="font-size:11.5px;font-weight:700;color:#5a9bff;cursor:pointer">Upgrade</span>
+          </div>`;
+        })()}
         ${state.usageError ? `
           <div style="max-width:500px;margin:14px auto 0;background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:10px;padding:14px 16px;text-align:center">
-            <p style="font-size:12px;color:#ff4757;line-height:1.6;margin-bottom:10px">${state.usageError}</p>
-            <button onclick="showPricingModal()" style="padding:7px 16px;border-radius:8px;font-size:12px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Upgrade to Pro</button>
+            <p style="font-size:11.5px;color:#ff4757;line-height:1.6;margin-bottom:10px">${state.usageError}</p>
+            <button onclick="showPricingModal()" style="padding:7px 16px;border-radius:10px;font-size:11.5px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Upgrade to Pro</button>
           </div>
         ` : ''}
       </div>
@@ -1126,15 +1143,23 @@ function render(){
 
       ${state.ticker ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
         <span class="tnum" style="font-size:27px;font-weight:900;color:#fff;letter-spacing:-.01em">${d.ticker}</span>
-        <span style="font-size:14px;color:rgba(255,255,255,.45);font-weight:500">${d.companyName}</span>
+        <span style="font-size:15px;color:rgba(255,255,255,.45);font-weight:500">${d.companyName}</span>
         ${state.aiData[state.ticker] && !state.loading ? (state.viewingSavedDate
-          ? `<span style="font-size:11px;color:rgba(255,255,255,.45);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:5px 10px;border-radius:8px">Saved · ${fmtSavedDate(state.viewingSavedDate)}</span><button onclick="reanalyzeCurrent()" class="btn-primary" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer">↻ Re-analyze</button>`
-          : (()=>{ const saved = state.savedAnalyses.some(s=>s.ticker===d.ticker); return `<button onclick="saveCurrentAnalysis()" class="nav-btn" style="padding:7px 13px;border-radius:9px;font-size:11.5px;font-weight:600;background:${saved?'rgba(0,200,150,.12)':'rgba(255,255,255,.05)'};color:${saved?'#00c896':'rgba(255,255,255,.75)'};border:1px solid ${saved?'rgba(0,200,150,.3)':'rgba(255,255,255,.1)'};cursor:pointer;display:inline-flex;align-items:center;gap:6px">${state.savingAnalysis?'Saving…':(saved?'✓ Saved · Update':'☆ Save to Watchlist')}</button>`; })()
+          ? `<span style="font-size:11.5px;color:rgba(255,255,255,.45);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);padding:5px 10px;border-radius:10px">Saved · ${fmtSavedDate(state.viewingSavedDate)}</span><button onclick="reanalyzeCurrent()" class="btn-primary" style="padding:7px 14px;border-radius:10px;font-size:11.5px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer">↻ Re-analyze</button>`
+          : (()=>{ const saved = state.savedAnalyses.some(s=>s.ticker===d.ticker); return `<button onclick="saveCurrentAnalysis()" class="nav-btn" style="padding:7px 13px;border-radius:10px;font-size:11.5px;font-weight:600;background:${saved?'rgba(0,200,150,.12)':'rgba(255,255,255,.05)'};color:${saved?'#00c896':'rgba(255,255,255,.75)'};border:1px solid ${saved?'rgba(0,200,150,.3)':'rgba(255,255,255,.1)'};cursor:pointer;display:inline-flex;align-items:center;gap:6px">${state.savingAnalysis?'Saving…':(saved?'✓ Saved · Update':'☆ Save to Watchlist')}</button>`; })()
         ) : ''}
         <span class="tnum" style="margin-left:auto;font-size:24px;font-weight:800;color:#fff;letter-spacing:-.01em">${state.loading ? '<span style="font-size:13px;font-weight:600;color:rgba(255,255,255,.45)">Loading…</span>' : (d.currentPrice ? '$'+d.currentPrice : '')}</span>
       </div>` : ''}
 
-      <div id="results-section" style="display:${state.ticker ? 'block' : 'none'}">
+      ${(state.analyzeError && !state.loading && !state.aiData[state.ticker]) ? `
+      <div style="max-width:460px;margin:24px auto;text-align:center;background:rgba(255,71,87,.08);border:1px solid rgba(255,71,87,.28);border-radius:16px;padding:26px 22px">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.25);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ff4757" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+        <p style="font-size:15px;font-weight:700;color:#fff;margin-bottom:6px">${state.analyzeError}</p>
+        <p style="font-size:11.5px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:18px">The AI models may be busy or the ticker couldn't be reached. Give it another go.</p>
+        <button onclick="analyzeStock()" class="btn-primary" style="padding:10px 22px;border-radius:10px;font-size:13px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(61,133,255,.35)">↻ Try Again</button>
+      </div>` : ''}
+
+      <div id="results-section" style="display:${state.ticker && !(state.analyzeError && !state.loading && !state.aiData[state.ticker]) ? 'block' : 'none'}">
       <!-- AI CONSENSUS with info button -->
       <div class="card" style="padding:28px 24px;text-align:center;margin-bottom:12px">
         <div style="display:flex;align-items:center;justify-content:center;margin-bottom:18px">
@@ -1163,7 +1188,7 @@ function render(){
             ].map(m=>{
               const hasScore = m.score !== null;
               const lockedProOnly = m.proOnly && !isPaid();
-              const color = hasScore ? (m.score>=60?'#00c896':m.score>=40?'#ffd700':'#ff4757') : 'rgba(255,255,255,.2)';
+              const color = hasScore ? (m.score>=60?'#00c896':m.score>=40?'#e3b341':'#ff4757') : 'rgba(255,255,255,.2)';
               const adj = consensus.adj || 0;
               // Every chip is interactive: hover shows the active model, click opens a
               // persistent popup (stays open until an outside click). Only Claude has a
@@ -1176,7 +1201,7 @@ function render(){
               const display = claudeBusy
                 ? `<span class="pulse-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${fableOn?'#ffd700':'#5a9bff'}"></span>`
                 : claudeErr ? '⚠'
-                : lockedProOnly ? '🔒' : hasScore ? Math.min(99,Math.max(1,m.score+adj))+'%' : (state.loading ? '...' : '—');
+                : lockedProOnly ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : hasScore ? Math.min(99,Math.max(1,m.score+adj))+'%' : (state.loading ? '...' : '—');
               // F5 badge when Fable is active; a subtle gold sparkle teaser on the Claude
               // chip for Free users (hints there's a premium model behind this slot).
               const f5badge = fableOn
@@ -1186,7 +1211,7 @@ function render(){
               const bg = claudeErr ? 'rgba(255,71,87,.08)' : fableOn ? 'rgba(255,215,0,.1)' : lockedProOnly ? 'rgba(255,215,0,.06)' : 'rgba(255,255,255,.04)';
               const bd = claudeErr ? 'rgba(255,71,87,.4)' : fableOn ? 'rgba(255,215,0,.45)' : lockedProOnly ? 'rgba(255,215,0,.2)' : 'rgba(255,255,255,.07)';
               const dotColor = claudeBusy ? (fableOn?'#ffd700':'#5a9bff') : claudeErr ? '#ff4757' : color;
-              return `<div data-model-chip="${m.name}"${m.name==='Claude'?' data-claude-chip="1"':''} tabindex="0" onclick="openModelPopup('${m.name}')" onmouseenter="showTip(this)" onmouseleave="hideTip()" onfocus="showTip(this)" onblur="hideTip()" data-tip-title="${modelTipTitle(m.name)}" data-tip-text="${tipText}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;cursor:pointer;background:${bg};border:1px solid ${bd}${fableOn?';box-shadow:0 0 0 1px rgba(255,215,0,.15),0 2px 10px rgba(255,215,0,.12)':''}"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};box-shadow:0 0 6px ${hasScore||claudeBusy||claudeErr?dotColor:'transparent'}"></div><span style="font-size:11px;color:${fableOn?'#ffd700':'rgba(255,255,255,.55)'};font-weight:${fableOn?'700':'500'}">${m.name}</span>${f5badge}<span class="tnum" style="font-size:12px;font-weight:800;color:${claudeBusy?(fableOn?'#ffd700':'#5a9bff'):accent}">${display}</span></div>`;
+              return `<div data-model-chip="${m.name}"${m.name==='Claude'?' data-claude-chip="1"':''} tabindex="0" onclick="openModelPopup('${m.name}')" onmouseenter="showTip(this)" onmouseleave="hideTip()" onfocus="showTip(this)" onblur="hideTip()" data-tip-title="${modelTipTitle(m.name)}" data-tip-text="${tipText}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;cursor:pointer;background:${bg};border:1px solid ${bd}${fableOn?';box-shadow:0 0 0 1px rgba(255,215,0,.15),0 2px 10px rgba(255,215,0,.12)':''}"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};box-shadow:0 0 6px ${hasScore||claudeBusy||claudeErr?dotColor:'transparent'}"></div><span style="font-size:11.5px;color:${fableOn?'#ffd700':'rgba(255,255,255,.55)'};font-weight:${fableOn?'700':'500'}">${m.name}</span>${f5badge}<span class="tnum" style="font-size:11.5px;font-weight:800;color:${claudeBusy?(fableOn?'#ffd700':'#5a9bff'):accent}">${display}</span></div>`;
             }).join('');
           })()}
         </div>
@@ -1194,7 +1219,7 @@ function render(){
           const ai = state.aiData[state.ticker];
           if (!ai || state.loading) return '';
           if (!isPaid()) {
-            return `<button onclick="showPricingModal()" class="pro-lock" style="width:100%;justify-content:center;border-radius:12px;padding:12px 14px;font-size:12px;font-weight:700;margin-top:2px">
+            return `<button onclick="showPricingModal()" class="pro-lock" style="width:100%;justify-content:center;border-radius:12px;padding:12px 14px;font-size:11.5px;font-weight:700;margin-top:2px">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
               See individual model analysis — Pro
             </button>`;
@@ -1202,7 +1227,7 @@ function render(){
           const reModels = (ai.models || []).filter(m => !m.error && m.reasoning);
           if (!reModels.length) return '';
           const open = state.expandedReasoning['_all'];
-          return `<button onclick="state.expandedReasoning['_all']=!state.expandedReasoning['_all'];render()" class="pro-pill" style="width:100%;justify-content:center;border-radius:12px;padding:12px 14px;font-size:12px;font-weight:700;margin-top:2px;${open?'filter:brightness(1.08);':''}">
+          return `<button onclick="state.expandedReasoning['_all']=!state.expandedReasoning['_all'];render()" class="pro-pill" style="width:100%;justify-content:center;border-radius:12px;padding:12px 14px;font-size:11.5px;font-weight:700;margin-top:2px;${open?'filter:brightness(1.08);':''}">
             <span class="dot"></span>See individual model analysis<span class="chev">${open?'▴':'▾'}</span>
           </button>
           ${open ? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
@@ -1213,27 +1238,27 @@ function render(){
               const accent = claudeErr ? '#ff4757' : isClaudeFable ? '#ffd700' : '#5a9bff';
               const label = claudeErr ? 'ERROR' : m.model === 'Claude' ? (isClaudeFable ? 'FABLE 5 · PREMIUM' : 'HAIKU 4.5') : 'PRO ANALYSIS';
               const labelColor = claudeErr ? '#ff4757' : '#ffd700';
-              const scoreColor = m.bullScore>=60?'#00c896':m.bullScore>=40?'#ffd700':'#ff4757';
+              const scoreColor = m.bullScore>=60?'#00c896':m.bullScore>=40?'#e3b341':'#ff4757';
               const goldPanel = isClaudeFable ? '--accent:#ffd700;border-color:rgba(255,215,0,.4);background:linear-gradient(180deg,rgba(255,215,0,.07),#0b1224);box-shadow:0 0 0 1px rgba(255,215,0,.12),0 8px 24px rgba(0,0,0,.4)' : claudeErr ? '--accent:#ff4757;border-color:rgba(255,71,87,.4)' : '';
               return `<div class="pro-panel" style="${goldPanel}">
               <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
                 <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:${accent}">${m.model.toUpperCase()}</span>
                 <span style="color:rgba(255,255,255,.25)">·</span>
                 <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:${labelColor}">${label}</span>
-                ${busy || claudeErr ? '' : `<span class="tnum" style="margin-left:auto;font-size:11px;font-weight:800;color:${scoreColor}">${m.bullScore}%</span>`}
+                ${busy || claudeErr ? '' : `<span class="tnum" style="margin-left:auto;font-size:11.5px;font-weight:800;color:${scoreColor}">${m.bullScore}%</span>`}
               </div>
               ${busy
-                ? `<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:${accent}"></span><span style="font-size:12px;color:rgba(255,255,255,.6)">Re-running with ${state.claudeModelName}…</span></div>`
+                ? `<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:${accent}"></span><span style="font-size:11.5px;color:rgba(255,255,255,.6)">Re-running with ${state.claudeModelName}…</span></div>`
                 : claudeErr
-                ? `<p style="font-size:12px;color:#ff8c42;line-height:1.7">${state.claudeError}</p>`
-                : `<p style="font-size:12px;color:rgba(255,255,255,.78);line-height:1.7">${m.reasoning}</p>`}
+                ? `<p style="font-size:11.5px;color:#ff8c42;line-height:1.7">${state.claudeError}</p>`
+                : `<p style="font-size:11.5px;color:rgba(255,255,255,.78);line-height:1.7">${m.reasoning}</p>`}
             </div>`;
             }).join('')}
           </div>` : ''}`;
         })()}
         <div class="clegend" style="display:flex;justify-content:center;gap:24px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06)">
-          <div style="display:flex;align-items:center;gap:7px"><div style="width:9px;height:9px;border-radius:3px;background:#00c896;box-shadow:0 0 6px rgba(0,200,150,.6)"></div><span style="font-size:11px;color:rgba(255,255,255,.55)">Bull <b class="tnum" style="color:#fff;font-weight:800">${state.loading ? '--' : consensus.bull}%</b></span></div>
-          <div style="display:flex;align-items:center;gap:7px"><div style="width:9px;height:9px;border-radius:3px;background:#ff4757;box-shadow:0 0 6px rgba(255,71,87,.6)"></div><span style="font-size:11px;color:rgba(255,255,255,.55)">Bear <b class="tnum" style="color:#fff;font-weight:800">${state.loading ? '--' : consensus.bear}%</b></span></div>
+          <div style="display:flex;align-items:center;gap:7px"><div style="width:9px;height:9px;border-radius:3px;background:#00c896;box-shadow:0 0 6px rgba(0,200,150,.6)"></div><span style="font-size:11.5px;color:rgba(255,255,255,.55)">Bull <b class="tnum" style="color:#fff;font-weight:800">${state.loading ? '--' : consensus.bull}%</b></span></div>
+          <div style="display:flex;align-items:center;gap:7px"><div style="width:9px;height:9px;border-radius:3px;background:#ff4757;box-shadow:0 0 6px rgba(255,71,87,.6)"></div><span style="font-size:11.5px;color:rgba(255,255,255,.55)">Bear <b class="tnum" style="color:#fff;font-weight:800">${state.loading ? '--' : consensus.bear}%</b></span></div>
         </div>
       </div>
 
@@ -1244,12 +1269,12 @@ function render(){
           <div style="display:flex;gap:8px;justify-content:center;margin-bottom:13px;flex-wrap:wrap">
             ${["conservative","moderate","aggressive"].map(r=>{
               const active=state.risk===r;
-              const c={conservative:"#3d85ff",moderate:"#ffd700",aggressive:"#ff4757"}[r];
+              const c={conservative:"#3d85ff",moderate:"#e3b341",aggressive:"#ff4757"}[r];
               return`<button onclick="state.risk='${r}';render()" class="seg-btn" style="padding:7px 14px;border-radius:10px;font-size:11.5px;font-weight:700;text-transform:capitalize;background:${active?`${c}1f`:"rgba(255,255,255,.03)"};border:1.5px solid ${active?c:"rgba(255,255,255,.08)"};color:${active?c:"rgba(255,255,255,.45)"};${active?`box-shadow:0 2px 12px ${c}22`:""};cursor:pointer">${r}</button>`;
             }).join('')}
           </div>
           <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
-            <p style="font-size:11px;color:rgba(255,255,255,.4);line-height:1.5">${riskDesc}</p>
+            <p style="font-size:11.5px;color:rgba(255,255,255,.4);line-height:1.5">${riskDesc}</p>
             ${adjBadge}
           </div>
         </div>
@@ -1261,7 +1286,7 @@ function render(){
               return`<button onclick="state.aiTf='${val}';render()" class="seg-btn" style="padding:7px 14px;border-radius:10px;font-size:11.5px;font-weight:700;background:${active?"rgba(61,133,255,.18)":"rgba(255,255,255,.03)"};border:1.5px solid ${active?"#3d85ff":"rgba(255,255,255,.08)"};color:${active?"#5a9bff":"rgba(255,255,255,.45)"};${active?"box-shadow:0 2px 12px rgba(61,133,255,.22)":""};cursor:pointer">${label}</button>`;
             }).join('')}
           </div>
-          <p style="font-size:11px;color:rgba(255,255,255,.4);line-height:1.5">${(()=>{
+          <p style="font-size:11.5px;color:rgba(255,255,255,.4);line-height:1.5">${(()=>{
             const ai = state.aiData[state.ticker];
             if (!ai) return 'Run analysis to see horizon breakdown';
             if (state.aiTf==='1W') return ai.bullScore1W != null ? 'Short-term momentum & near-term catalysts weighted' : 'Horizon data loading...';
@@ -1281,7 +1306,7 @@ function render(){
           </div>
           <div style="display:flex;flex-direction:column;align-items:center">
             <div style="position:relative;width:120px;height:120px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px">${analystSVG(d.analystRating)}</div>
-            ${[{l:"Buy",v:d.analystBuy,c:"#00c896"},{l:"Hold",v:d.analystHold,c:"#ffd700"},{l:"Sell",v:d.analystSell,c:"#ff4757"}].map(({l,v,c})=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;width:190px"><span style="font-size:10px;color:rgba(255,255,255,.45);width:26px;font-weight:600">${l}</span><div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden"><div style="height:100%;width:${v}%;background:linear-gradient(90deg,${c}99,${c});border-radius:4px;box-shadow:0 0 8px ${c}66"></div></div><span class="tnum" style="font-size:10.5px;font-weight:800;color:rgba(255,255,255,.7);width:30px;text-align:right">${v}%</span></div>`).join('')}
+            ${[{l:"Buy",v:d.analystBuy,c:"#00c896"},{l:"Hold",v:d.analystHold,c:"#e3b341"},{l:"Sell",v:d.analystSell,c:"#ff4757"}].map(({l,v,c})=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;width:190px"><span style="font-size:10px;color:rgba(255,255,255,.45);width:26px;font-weight:600">${l}</span><div style="flex:1;height:6px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden"><div style="height:100%;width:${v}%;background:linear-gradient(90deg,${c}99,${c});border-radius:4px;box-shadow:0 0 8px ${c}66"></div></div><span class="tnum" style="font-size:10px;font-weight:800;color:rgba(255,255,255,.7);width:30px;text-align:right">${v}%</span></div>`).join('')}
           </div>
         </div>
 
@@ -1297,10 +1322,10 @@ function render(){
               const sectorScore = d.sectorSentimentScore ?? 50;
               const entrySignal = d.entrySignal ?? '—';
               const activeTab = state.sentimentTab || 'chart';
-              const entryColor = entrySignal==='Strong Entry'?'#00c896':entrySignal==='Good Entry'?'#00c896':entrySignal==='Decent Entry'?'#ffd700':entrySignal==='Wait'?'#ff8c42':'#ff4757';
+              const entryColor = entrySignal==='Strong Entry'?'#00c896':entrySignal==='Good Entry'?'#00c896':entrySignal==='Decent Entry'?'#e3b341':entrySignal==='Wait'?'#ff8c42':'#ff4757';
               const stockPos = Math.min(97, Math.max(3, stockScore));
               const sectorPos = Math.min(97, Math.max(3, sectorScore));
-              const stockColor = stockScore > 60 ? '#ff4757' : stockScore < 40 ? '#00c896' : '#ffd700';
+              const stockColor = stockScore > 60 ? '#ff4757' : stockScore < 40 ? '#00c896' : '#e3b341';
 
               const chartTab = `
                 <div style="padding:6px 4px 0">
@@ -1318,19 +1343,19 @@ function render(){
                 </div>`;
 
               const analysisTab = `
-                <p style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.7;text-align:center">
+                <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.7;text-align:center">
                   ${d.sentimentAnalysis ?? 'Run AI analysis to see sentiment breakdown.'}
                 </p>`;
 
               return `
                 <div style="display:flex;gap:4px;background:#0b1120;border:1px solid rgba(255,255,255,.06);border-radius:10px;padding:4px;margin-bottom:6px">
-                  <button onclick="state.sentimentTab='chart';render()" class="seg-btn" style="flex:1;padding:7px;border-radius:7px;font-size:11px;font-weight:700;background:${activeTab==='chart'?'linear-gradient(180deg,#4a90ff,#2f6fe0)':'transparent'};color:${activeTab==='chart'?'#fff':'rgba(255,255,255,.4)'};border:none;cursor:pointer;${activeTab==='chart'?'box-shadow:0 3px 10px rgba(61,133,255,.3)':''}">Chart</button>
-                  <button onclick="state.sentimentTab='analysis';render()" class="seg-btn" style="flex:1;padding:7px;border-radius:7px;font-size:11px;font-weight:700;background:${activeTab==='analysis'?'linear-gradient(180deg,#4a90ff,#2f6fe0)':'transparent'};color:${activeTab==='analysis'?'#fff':'rgba(255,255,255,.4)'};border:none;cursor:pointer;${activeTab==='analysis'?'box-shadow:0 3px 10px rgba(61,133,255,.3)':''}">Analysis</button>
+                  <button onclick="state.sentimentTab='chart';render()" class="seg-btn" style="flex:1;padding:7px;border-radius:7px;font-size:11.5px;font-weight:700;background:${activeTab==='chart'?'linear-gradient(180deg,#4a90ff,#2f6fe0)':'transparent'};color:${activeTab==='chart'?'#fff':'rgba(255,255,255,.4)'};border:none;cursor:pointer;${activeTab==='chart'?'box-shadow:0 3px 10px rgba(61,133,255,.3)':''}">Chart</button>
+                  <button onclick="state.sentimentTab='analysis';render()" class="seg-btn" style="flex:1;padding:7px;border-radius:7px;font-size:11.5px;font-weight:700;background:${activeTab==='analysis'?'linear-gradient(180deg,#4a90ff,#2f6fe0)':'transparent'};color:${activeTab==='analysis'?'#fff':'rgba(255,255,255,.4)'};border:none;cursor:pointer;${activeTab==='analysis'?'box-shadow:0 3px 10px rgba(61,133,255,.3)':''}">Analysis</button>
                 </div>
                 ${activeTab==='chart' ? chartTab : analysisTab}
                 <div style="display:flex;align-items:center;justify-content:center;gap:9px;padding-top:12px;border-top:1px solid rgba(255,255,255,.06)">
                   <span class="eyebrow" style="font-size:9px">Entry Signal</span>
-                  <span style="font-size:12px;font-weight:800;color:${entryColor};padding:3px 12px;border-radius:999px;background:${entryColor}1a;border:1px solid ${entryColor}3a">${entrySignal}</span>
+                  <span style="font-size:11.5px;font-weight:800;color:${entryColor};padding:3px 12px;border-radius:999px;background:${entryColor}1a;border:1px solid ${entryColor}3a">${entrySignal}</span>
                 </div>`;
             })()}
           </div>
@@ -1339,19 +1364,19 @@ function render(){
 
       <!-- FUNDAMENTALS -->
       <div class="card" style="padding:24px;border-left:3px solid #3d85ff;border-radius:16px;margin-bottom:12px">
-        <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
-          <div style="width:30px;height:30px;border-radius:9px;background:rgba(61,133,255,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5a9bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h.01M9 12h.01M9 15h.01M9 18h.01"/></svg></div>
+        <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+          <div style="width:34px;height:34px;border-radius:10px;background:rgba(61,133,255,.12);border:1px solid rgba(61,133,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5a9bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9h.01M9 12h.01M9 15h.01M9 18h.01"/></svg></div>
           <h2 style="font-size:16px;font-weight:800;color:#fff;letter-spacing:-.01em">Company Overview</h2>
         </div>
         <div style="margin-bottom:18px">
           <p class="eyebrow" style="margin-bottom:5px">Company</p>
-          <p style="font-size:15px;font-weight:700;color:#fff">${d.companyName} <span style="color:rgba(255,255,255,.4);font-size:12px;font-weight:400">(${d.ticker})</span></p>
-          <p style="font-size:12px;color:rgba(255,255,255,.5);margin-top:6px;line-height:1.65">${d.description}</p>
+          <p style="font-size:15px;font-weight:700;color:#fff">${d.companyName} <span style="color:rgba(255,255,255,.4);font-size:11.5px;font-weight:400">(${d.ticker})</span></p>
+          <p style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:6px;line-height:1.65">${d.description}</p>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
-          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">Sector</p><p style="font-size:13px;font-weight:700;color:#fff">${d.sector}</p><p style="font-size:11px;color:rgba(255,255,255,.4);margin-top:2px">${d.industry}</p></div>
-          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">Market Cap</p><p class="tnum" style="font-size:14px;font-weight:800;color:#fff">${d.marketCap}</p>${d.marketCapLabel?`<span style="display:inline-block;margin-top:5px;font-size:10px;font-weight:700;color:#5a9bff;background:rgba(61,133,255,.12);padding:2px 8px;border-radius:6px">${d.marketCapLabel}</span>`:''}</div>
-          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">P/E Ratio</p><span class="tnum" style="font-size:14px;font-weight:800;color:#fff">${d.peRatio}x</span><span style="margin-left:8px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;color:${d.peLabel==="High"?"#ff4757":d.peLabel==="Fair"?"#ffd700":"#00c896"};background:${d.peLabel==="High"?"rgba(255,71,87,.12)":d.peLabel==="Fair"?"rgba(255,215,0,.12)":"rgba(0,200,150,.12)"}">${d.peLabel}</span></div>
+          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">Sector</p><p style="font-size:13px;font-weight:700;color:#fff">${d.sector}</p><p style="font-size:11.5px;color:rgba(255,255,255,.4);margin-top:2px">${d.industry}</p></div>
+          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">Market Cap</p><p class="tnum" style="font-size:15px;font-weight:800;color:#fff">${d.marketCap}</p>${d.marketCapLabel?`<span style="display:inline-block;margin-top:5px;font-size:10px;font-weight:700;color:#5a9bff;background:rgba(61,133,255,.12);padding:2px 8px;border-radius:6px">${d.marketCapLabel}</span>`:''}</div>
+          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">P/E Ratio</p><span class="tnum" style="font-size:15px;font-weight:800;color:#fff">${d.peRatio}x</span><span style="margin-left:8px;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;color:${d.peLabel==="High"?"#ff4757":d.peLabel==="Fair"?"#e3b341":"#00c896"};background:${d.peLabel==="High"?"rgba(255,71,87,.12)":d.peLabel==="Fair"?"rgba(227,179,65,.12)":"rgba(0,200,150,.12)"}">${d.peLabel}</span></div>
           <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">Earnings Date</p><p style="font-size:13px;font-weight:700;color:#fff">${d.earningsDate||'—'}</p></div>
           <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">Analyst Price Target</p>${(()=>{
             const target = d.analystPriceTarget;
@@ -1359,7 +1384,7 @@ function render(){
             if (!target || !cur) return `<p style="font-size:13px;font-weight:700;color:#fff">—</p>`;
             const upside = (((target-cur)/cur)*100).toFixed(1);
             const isUp = target >= cur;
-            return `<p class="tnum" style="font-size:14px;font-weight:800;color:#fff">$${target}</p><span class="tnum" style="font-size:10px;font-weight:800;color:${isUp?'#00c896':'#ff4757'}">${isUp?'+':''}${upside}% upside</span>`;
+            return `<p class="tnum" style="font-size:15px;font-weight:800;color:#fff">$${target}</p><span class="tnum" style="font-size:10px;font-weight:800;color:${isUp?'#00c896':'#ff4757'}">${isUp?'+':''}${upside}% upside</span>`;
           })()}</div>
           <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:13px 15px"><p class="eyebrow" style="margin-bottom:6px">Dividend Yield</p><p class="tnum" style="font-size:13px;font-weight:700;color:#fff">${d.dividendYield||'—'}</p></div>
           <div style="grid-column:1/-1;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:12px;padding:14px 16px">
@@ -1369,14 +1394,14 @@ function render(){
               const pos = (hi > lo && !isNaN(lo) && !isNaN(hi) && !isNaN(cur)) ? Math.min(97, Math.max(3, ((cur-lo)/(hi-lo))*100)) : 50;
               const fmt = v => v ? '$'+Number(v).toFixed(2) : '—';
               return `<div style="display:flex;align-items:center;gap:10px;min-width:0">
-                <span class="tnum" style="font-size:11px;color:rgba(255,255,255,.45);white-space:nowrap;flex-shrink:0">${fmt(lo)}</span>
+                <span class="tnum" style="font-size:11.5px;color:rgba(255,255,255,.45);white-space:nowrap;flex-shrink:0">${fmt(lo)}</span>
                 <div style="flex:1;height:7px;background:rgba(255,255,255,.06);border-radius:4px;position:relative;min-width:60px">
                   <div style="height:100%;width:${pos}%;background:linear-gradient(90deg,#3d85ff,#00c896);border-radius:4px"></div>
                   <div style="position:absolute;top:50%;left:${pos}%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #3d85ff;box-shadow:0 0 8px rgba(61,133,255,.6);flex-shrink:0"></div>
                 </div>
-                <span class="tnum" style="font-size:11px;color:rgba(255,255,255,.45);white-space:nowrap;flex-shrink:0">${fmt(hi)}</span>
+                <span class="tnum" style="font-size:11.5px;color:rgba(255,255,255,.45);white-space:nowrap;flex-shrink:0">${fmt(hi)}</span>
               </div>
-              <p style="font-size:11px;color:rgba(255,255,255,.5);margin-top:8px">Current: <span class="tnum" style="color:#fff;font-weight:700">${fmt(cur)}</span></p>`;
+              <p style="font-size:11.5px;color:rgba(255,255,255,.5);margin-top:8px">Current: <span class="tnum" style="color:#fff;font-weight:700">${fmt(cur)}</span></p>`;
             })()}
           </div>
         </div>
@@ -1393,17 +1418,17 @@ function render(){
         if (!ai || state.loading) return '';
         if (!isPaid()) {
           return `<div class="pro-card" style="padding:18px 22px;margin-bottom:12px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
-              <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#000;color:#fff;font-size:15px;font-weight:800;flex-shrink:0">X</span>
-              <h3 style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.01em">X Sentiment</h3>
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+              <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:#000;border:1px solid rgba(255,255,255,.14);color:#fff;font-size:16px;font-weight:800;flex-shrink:0">X</span>
+              <h3 style="font-size:16px;font-weight:800;color:#fff;letter-spacing:-.01em">X Sentiment</h3>
               <span class="pro-tag">PRO</span>
             </div>
             <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
               <div style="display:flex;align-items:flex-start;gap:11px;flex:1;min-width:200px">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <p style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.6">Real-time social sentiment from X, powered by Grok — see how retail traders are positioned. <span style="color:#ffd700;font-weight:600">Pro only.</span></p>
+                <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6">Real-time social sentiment from X, powered by Grok — see how retail traders are positioned. <span style="color:#ffd700;font-weight:600">Pro only.</span></p>
               </div>
-              <button onclick="showPricingModal()" class="btn-gold" style="padding:9px 16px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3);white-space:nowrap">Unlock with Pro</button>
+              <button onclick="showPricingModal()" class="btn-gold" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3);white-space:nowrap">Unlock with Pro</button>
             </div>
           </div>`;
         }
@@ -1413,7 +1438,7 @@ function render(){
         const counter = xsRem != null ? `${xsRem} of ${xsCap} left today` : `${xsCap} / day`;
         let body;
         if (state.xSentLoading) {
-          body = `<div style="display:flex;align-items:center;gap:9px;padding:4px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:12.5px;color:rgba(255,255,255,.6)">Reading recent posts on X…</span></div>`;
+          body = `<div style="display:flex;align-items:center;gap:9px;padding:4px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:13px;color:rgba(255,255,255,.6)">Reading recent posts on X…</span></div>`;
         } else if (xs) {
           body = `<div style="display:flex;align-items:flex-end;gap:9px;margin-bottom:11px">
               <span class="tnum" style="font-size:30px;font-weight:900;color:${xs.color};line-height:1">${xs.score}%</span>
@@ -1422,24 +1447,24 @@ function render(){
             <div style="display:flex;gap:3px;margin-bottom:14px">
               ${[0,1,2,3,4].map(function(seg){return '<span style="flex:1;height:5px;border-radius:3px;background:'+(seg<Math.round(xs.score/20)?xs.color:'rgba(255,255,255,.1)')+'"></span>';}).join('')}
             </div>
-            <p style="font-size:12px;color:rgba(255,255,255,.74);line-height:1.7">${xs.summary || 'No summary available.'}</p>
+            <p style="font-size:11.5px;color:rgba(255,255,255,.74);line-height:1.7">${xs.summary || 'No summary available.'}</p>
             <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:11px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
               <span style="font-size:10px;color:rgba(255,255,255,.3)">Recent posts about ${d.ticker} on X · powered by Grok</span>
-              ${xsRem > 0 ? `<button onclick="analyzeXSentiment()" class="nav-btn" style="padding:4px 10px;border-radius:8px;font-size:10.5px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap">↻ Refresh</button>` : ''}
+              ${xsRem > 0 ? `<button onclick="analyzeXSentiment()" class="nav-btn" style="padding:4px 10px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap">↻ Refresh</button>` : ''}
             </div>`;
         } else if (state.xSentError) {
-          body = `<p style="font-size:12.5px;color:#ff8c42;line-height:1.6">${state.xSentError}</p>${(xsRem === 0 && !isPremium()) ? `<button onclick="showPricingModal()" class="btn-primary" style="margin-top:10px;padding:8px 14px;border-radius:9px;font-size:12px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">Want 4/day? Upgrade to Premium</button>` : ''}`;
+          body = `<p style="font-size:13px;color:#ff8c42;line-height:1.6">${state.xSentError}</p>${(xsRem === 0 && !isPremium()) ? `<button onclick="showPricingModal()" class="btn-primary" style="margin-top:10px;padding:8px 14px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">Want 4/day? Upgrade to Premium</button>` : ''}`;
         } else {
           body = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
-              <p style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.6;flex:1;min-width:180px">See how retail traders on X are positioned on ${d.ticker} right now, powered by Grok.</p>
-              <button onclick="analyzeXSentiment()" class="btn-primary" style="padding:9px 16px;border-radius:10px;font-size:12.5px;font-weight:800;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze X-Sentiment</button>
+              <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6;flex:1;min-width:180px">See how retail traders on X are positioned on ${d.ticker} right now, powered by Grok.</p>
+              <button onclick="analyzeXSentiment()" class="btn-primary" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze X-Sentiment</button>
             </div>`;
         }
         return `<div class="pro-card" style="padding:18px 22px;margin-bottom:12px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px">
-            <span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:8px;background:#000;color:#fff;font-size:15px;font-weight:800;flex-shrink:0">X</span>
-            <h3 style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.01em">X Sentiment</h3>
-            <span style="margin-left:auto;font-size:10.5px;color:rgba(255,255,255,.4)">${counter}</span>
+          <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:#000;border:1px solid rgba(255,255,255,.14);color:#fff;font-size:16px;font-weight:800;flex-shrink:0">X</span>
+            <h3 style="font-size:16px;font-weight:800;color:#fff;letter-spacing:-.01em">X Sentiment</h3>
+            <span style="margin-left:auto;font-size:10px;color:rgba(255,255,255,.4)">${counter}</span>
           </div>
           ${body}
         </div>`;
@@ -1450,7 +1475,7 @@ function render(){
           <div class="card" style="padding:22px 24px;height:100%;border:1px solid rgba(0,200,150,.15)">
             <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px"><div style="width:34px;height:34px;border-radius:10px;background:rgba(0,200,150,.12);border:1px solid rgba(0,200,150,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#00c896" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg></div><h3 style="font-size:16px;font-weight:800;color:#00c896;letter-spacing:-.01em">Bull Case</h3></div>
             <div>
-              <p style="font-size:12.5px;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:16px">${d.bullCase}</p>
+              <p style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:16px">${d.bullCase}</p>
               <p class="eyebrow" style="color:rgba(0,200,150,.8);margin-bottom:4px">Key Catalysts</p>
               ${d.bullCatalysts.map((c,i)=>{
                 const isObj = typeof c === 'object' && c !== null;
@@ -1468,11 +1493,11 @@ function render(){
 
                 let toggleRow;
                 if (hasDetail && isPaid()) {
-                  toggleRow = `<button onclick="state.expandedBullItems[${i}]=!state.expandedBullItems[${i}];render()" class="pro-pill" style="--pp-bg:linear-gradient(180deg,rgba(0,200,150,.2),rgba(0,200,150,.07));--pp-bd:rgba(0,200,150,.45);--pp-dot:#00c896;padding:4px 12px;font-size:11px;gap:6px">
+                  toggleRow = `<button onclick="state.expandedBullItems[${i}]=!state.expandedBullItems[${i}];render()" class="pro-pill" style="--pp-bg:linear-gradient(180deg,rgba(0,200,150,.2),rgba(0,200,150,.07));--pp-bd:rgba(0,200,150,.45);--pp-dot:#00c896;padding:4px 12px;font-size:11.5px;gap:6px">
                     <span class="dot"></span>${isExpanded?'Hide':'More info'}<span class="chev">${isExpanded?'▴':'▾'}</span>
                   </button>`;
                 } else if (hasDetail && !isPaid()) {
-                  toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11px;gap:6px">
+                  toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11.5px;gap:6px">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>More info<span class="pro-tag" style="font-size:8px;padding:2px 5px">PRO</span>
                   </button>`;
                 } else {
@@ -1481,14 +1506,14 @@ function render(){
 
                 const expandedBlock = (isExpanded && hasDetail && isPaid()) ? `
                   <div class="pro-panel" style="--accent:#00c896;margin:9px 0 2px 17px;padding:11px 14px 11px 15px">
-                    <p style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
+                    <p style="font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
                   </div>` : '';
 
                 return`<div style="padding:10px 0${i>0?';border-top:1px solid rgba(255,255,255,.05)':''}">
                   <div style="display:flex;gap:11px;align-items:flex-start">
                     <div style="width:6px;height:6px;border-radius:50%;background:#00c896;box-shadow:0 0 6px rgba(0,200,150,.5);flex-shrink:0;margin-top:6px"></div>
                     <div style="flex:1;min-width:0">
-                      <span style="font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.55">${text}</span>${date?`<span style="font-size:10px;color:rgba(255,255,255,.32);margin-left:7px;white-space:nowrap">${date}</span>`:''}${statusRow}
+                      <span style="font-size:13px;color:rgba(255,255,255,.78);line-height:1.55">${text}</span>${date?`<span style="font-size:10px;color:rgba(255,255,255,.32);margin-left:7px;white-space:nowrap">${date}</span>`:''}${statusRow}
                       ${toggleRow?`<div style="margin-top:8px">${toggleRow}</div>`:''}
                     </div>
                   </div>
@@ -1502,7 +1527,7 @@ function render(){
           <div class="card" style="padding:22px 24px;height:100%;border:1px solid rgba(255,71,87,.15)">
             <div style="display:flex;align-items:center;gap:11px;margin-bottom:14px"><div style="width:34px;height:34px;border-radius:10px;background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff4757" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l6 6 4-4 8 8"/><path d="M17 17h4v-4"/></svg></div><h3 style="font-size:16px;font-weight:800;color:#ff4757;letter-spacing:-.01em">Bear Case</h3></div>
             <div>
-              <p style="font-size:12.5px;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:16px">${d.bearCase}</p>
+              <p style="font-size:13px;color:rgba(255,255,255,.7);line-height:1.7;margin-bottom:16px">${d.bearCase}</p>
               <p class="eyebrow" style="color:rgba(255,71,87,.8);margin-bottom:4px">Key Risks</p>
               ${d.bearRisks.map((r,i)=>{
                 const isObj = typeof r === 'object' && r !== null;
@@ -1513,11 +1538,11 @@ function render(){
 
                 let toggleRow;
                 if (hasDetail && isPaid()) {
-                  toggleRow = `<button onclick="state.expandedBearItems[${i}]=!state.expandedBearItems[${i}];render()" class="pro-pill" style="--pp-bg:linear-gradient(180deg,rgba(255,71,87,.2),rgba(255,71,87,.07));--pp-bd:rgba(255,71,87,.45);--pp-dot:#ff4757;padding:4px 12px;font-size:11px;gap:6px">
+                  toggleRow = `<button onclick="state.expandedBearItems[${i}]=!state.expandedBearItems[${i}];render()" class="pro-pill" style="--pp-bg:linear-gradient(180deg,rgba(255,71,87,.2),rgba(255,71,87,.07));--pp-bd:rgba(255,71,87,.45);--pp-dot:#ff4757;padding:4px 12px;font-size:11.5px;gap:6px">
                     <span class="dot"></span>${isExpanded?'Hide':'More info'}<span class="chev">${isExpanded?'▴':'▾'}</span>
                   </button>`;
                 } else if (hasDetail && !isPaid()) {
-                  toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11px;gap:6px">
+                  toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11.5px;gap:6px">
                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>More info<span class="pro-tag" style="font-size:8px;padding:2px 5px">PRO</span>
                   </button>`;
                 } else {
@@ -1526,14 +1551,14 @@ function render(){
 
                 const expandedBlock = (isExpanded && hasDetail && isPaid()) ? `
                   <div class="pro-panel" style="--accent:#ff4757;margin:9px 0 2px 17px;padding:11px 14px 11px 15px">
-                    <p style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
+                    <p style="font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
                   </div>` : '';
 
                 return`<div style="padding:10px 0${i>0?';border-top:1px solid rgba(255,255,255,.05)':''}">
                   <div style="display:flex;gap:11px;align-items:flex-start">
                     <div style="width:6px;height:6px;border-radius:50%;background:#ff4757;box-shadow:0 0 6px rgba(255,71,87,.5);flex-shrink:0;margin-top:6px"></div>
                     <div style="flex:1;min-width:0">
-                      <span style="font-size:12.5px;color:rgba(255,255,255,.78);line-height:1.55">${text}</span>
+                      <span style="font-size:13px;color:rgba(255,255,255,.78);line-height:1.55">${text}</span>
                       ${toggleRow?`<div style="margin-top:8px">${toggleRow}</div>`:''}
                     </div>
                   </div>
@@ -1549,7 +1574,7 @@ function render(){
         <div class="card" style="padding:22px 24px">
           <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px"><div style="width:34px;height:34px;border-radius:10px;background:rgba(61,133,255,.12);border:1px solid rgba(61,133,255,.2);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5a9bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><h3 style="font-size:16px;font-weight:800;color:#fff;letter-spacing:-.01em">Upcoming Catalysts & News</h3></div>
           <div>
-            ${(d.news||[]).length === 0 ? '<p style="font-size:12px;color:rgba(255,255,255,.3);text-align:center;padding:16px">News will appear after AI analysis completes.</p>' : (d.news||[]).map((item,i)=>{
+            ${(d.news||[]).length === 0 ? '<p style="font-size:11.5px;color:rgba(255,255,255,.3);text-align:center;padding:16px">News will appear after AI analysis completes.</p>' : (d.news||[]).map((item,i)=>{
               const t=tagStyle(item.tag);
               const showPrior = (item.tag==='EARNINGS'||item.tag==='EVENT') && item.date && new Date(item.date) < new Date();
               const priorBadge = showPrior ? `<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:5px;color:rgba(255,255,255,.4);background:rgba(255,255,255,.07);flex-shrink:0;height:fit-content;margin-top:2px">PRIOR</span>` : '';
@@ -1560,11 +1585,11 @@ function render(){
 
               let toggleRow;
               if (hasDetail && isPaid()) {
-                toggleRow = `<button onclick="state.expandedNewsItems[${i}]=!state.expandedNewsItems[${i}];render()" class="pro-pill" style="padding:4px 12px;font-size:11px;gap:6px;margin-left:8px;vertical-align:middle">
+                toggleRow = `<button onclick="state.expandedNewsItems[${i}]=!state.expandedNewsItems[${i}];render()" class="pro-pill" style="padding:4px 12px;font-size:11.5px;gap:6px;margin-left:8px;vertical-align:middle">
                   <span class="dot"></span>${isExpanded?'Hide':'More info'}<span class="chev">${isExpanded?'▴':'▾'}</span>
                 </button>`;
               } else if (hasDetail && !isPaid()) {
-                toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11px;gap:6px;margin-left:8px;vertical-align:middle">
+                toggleRow = `<button onclick="showPricingModal()" class="pro-lock" style="padding:4px 10px 4px 11px;font-size:11.5px;gap:6px;margin-left:8px;vertical-align:middle">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>More info<span class="pro-tag" style="font-size:8px;padding:2px 5px">PRO</span>
                 </button>`;
               } else {
@@ -1573,14 +1598,14 @@ function render(){
 
               const expandedBlock = (isExpanded && hasDetail && isPaid()) ? `
                 <div class="pro-panel" style="margin:8px 0 2px 4px;padding:11px 14px 11px 15px">
-                  <p style="font-size:12px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
+                  <p style="font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.65">${detail}</p>
                 </div>` : '';
 
               return`<div style="padding:12px 14px;border-radius:12px;margin-bottom:8px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05)">
                 <div style="display:flex;gap:9px;align-items:flex-start">
                   <span style="font-size:9px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:6px;color:${t.c};background:${t.bg};flex-shrink:0;margin-top:1px">${item.tag}</span>${priorBadge}
                   <div style="flex:1;min-width:0">
-                    <p style="font-size:12.5px;color:rgba(255,255,255,.82);font-weight:500;line-height:1.55">${item.title}${toggleRow}</p>
+                    <p style="font-size:13px;color:rgba(255,255,255,.82);font-weight:500;line-height:1.55">${item.title}${toggleRow}</p>
                     <p style="font-size:10px;color:rgba(255,255,255,.32);margin-top:4px">${item.date}</p>
                   </div>
                   ${item.ai?`<span style="font-size:9px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:6px;color:#5a9bff;background:rgba(61,133,255,.12);flex-shrink:0">AI</span>`:""}
@@ -1593,21 +1618,28 @@ function render(){
       </div>
 
       </div>
-      ${!state.ticker ? `<div style="text-align:center;padding:64px 16px"><div style="width:56px;height:56px;border-radius:16px;background:rgba(61,133,255,.1);border:1px solid rgba(61,133,255,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5a9bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></div><p style="font-size:15px;color:rgba(255,255,255,.5);font-weight:500">Enter a ticker above and click <strong style="color:#5a9bff;font-weight:700">Analyze</strong> to get started.</p></div>` : ''}
+      ${!state.ticker ? `<div style="text-align:center;padding:48px 16px 56px">
+        <div style="width:56px;height:56px;border-radius:16px;background:rgba(61,133,255,.1);border:1px solid rgba(61,133,255,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5a9bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></div>
+        <p style="font-size:15px;color:rgba(255,255,255,.5);font-weight:500;margin-bottom:26px">Enter a ticker above and click <strong style="color:#5a9bff;font-weight:700">Analyze</strong> to get started.</p>
+        <p class="eyebrow" style="margin-bottom:12px">Or try one</p>
+        <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap">
+          ${['NVDA','AAPL','TSLA','MSFT','AMZN'].map(t=>`<button onclick="state.searchInput='${t}';analyzeStock()" class="nav-btn tnum" style="padding:9px 18px;border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.02em;color:rgba(255,255,255,.75);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);cursor:pointer">${t}</button>`).join('')}
+        </div>
+      </div>` : ''}
     </main>
 
     <footer style="border-top:1px solid rgba(255,255,255,.05);background:#0a0f1e;padding:24px 16px">
       <div style="max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center">
         <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;box-shadow:0 4px 12px rgba(61,133,255,.35),inset 0 1px 0 rgba(255,255,255,.25)">TT</div><span style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-.02em">TrueTrade<span style="color:#5a9bff">AI</span></span></div>
         <div style="display:flex;gap:18px;flex-wrap:wrap">
-          <a href="about.html" onclick="window.location.href='about.html';return false;" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">About</a>
-          <a href="pricing.html" onclick="window.location.href='pricing.html';return false;" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Pricing</a>
-          <a href="contact.html" onclick="window.location.href='contact.html';return false;" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Contact</a>
-          <a href="terms.html" onclick="window.location.href='terms.html';return false;" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Terms</a>
-          <a href="privacy.html" onclick="window.location.href='privacy.html';return false;" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Privacy</a>
-          <a href="javascript:void(0)" onclick="reportBug()" style="font-size:12px;color:rgba(255,255,255,.35);text-decoration:none">Report a Bug</a>
+          <a href="about.html" onclick="window.location.href='about.html';return false;" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">About</a>
+          <a href="pricing.html" onclick="window.location.href='pricing.html';return false;" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Pricing</a>
+          <a href="contact.html" onclick="window.location.href='contact.html';return false;" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Contact</a>
+          <a href="terms.html" onclick="window.location.href='terms.html';return false;" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Terms</a>
+          <a href="privacy.html" onclick="window.location.href='privacy.html';return false;" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Privacy</a>
+          <a href="javascript:void(0)" onclick="reportBug()" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none">Report a Bug</a>
         </div>
-        <p style="font-size:10px;color:rgba(255,255,255,.2);max-width:260px;line-height:1.6">TrueTradeAI is for informational purposes only and does not constitute financial advice.</p>
+        <p style="font-size:11.5px;color:rgba(255,255,255,.5);max-width:320px;line-height:1.6">TrueTradeAI is for informational purposes only and does not constitute financial advice. <span style="color:rgba(255,255,255,.35)">© 2026 TrueTradeAI. All rights reserved.</span></p>
       </div>
     </footer>
 
@@ -1615,33 +1647,33 @@ function render(){
     <div onclick="state.watchlistOpen=false;render()" style="position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55"></div>
     <div onclick="event.stopPropagation()" style="position:fixed;right:0;top:0;bottom:0;width:320px;z-index:65;display:flex;flex-direction:column;background:linear-gradient(180deg,#141b2d,#10172a);border-left:1px solid rgba(255,255,255,.07);box-shadow:-20px 0 60px rgba(0,0,0,.5)">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid rgba(255,255,255,.06)">
-        <div style="display:flex;align-items:center;gap:9px"><span style="color:#ffd700;font-size:15px">★</span><h3 style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.01em">Watchlist</h3></div>
+        <div style="display:flex;align-items:center;gap:9px"><svg width="16" height="16" viewBox="0 0 24 24" fill="#ffd700" stroke="none" style="flex-shrink:0"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg><h3 style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.01em">Watchlist</h3></div>
         <button onclick="state.watchlistOpen=false;render()" style="background:transparent;color:rgba(255,255,255,.4);font-size:20px;border:none;cursor:pointer;line-height:1">×</button>
       </div>
       <div style="flex:1;overflow-y:auto;padding:12px">
         ${!currentUser ? `
           <div style="text-align:center;padding:44px 20px">
             <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
-            <p style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:16px">Log in to save analyses to your watchlist.</p>
-            <button onclick="state.watchlistOpen=false;state.authModal=true;state.authMode='login';render()" class="btn-primary" style="padding:9px 20px;border-radius:10px;font-size:12.5px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(61,133,255,.35)">Log In</button>
+            <p style="font-size:13px;color:rgba(255,255,255,.45);line-height:1.6;margin-bottom:16px">Log in to save analyses to your watchlist.</p>
+            <button onclick="state.watchlistOpen=false;state.authModal=true;state.authMode='login';render()" class="btn-primary" style="padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(61,133,255,.35)">Log In</button>
           </div>
         ` : `
           ${!isPremium() ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;margin-bottom:10px;border-radius:10px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18)">
-            <span class="tnum" style="font-size:11px;font-weight:700;color:#ffd700">${state.savedAnalyses.length}/${savedLimit()} saved</span>
-            <span onclick="state.watchlistOpen=false;showPricingModal()" style="font-size:10.5px;color:rgba(255,255,255,.5);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)">Upgrade for ${isPaid()?'unlimited':'more'}</span>
+            <span class="tnum" style="font-size:11.5px;font-weight:700;color:#ffd700">${state.savedAnalyses.length}/${savedLimit()} saved</span>
+            <span onclick="state.watchlistOpen=false;showPricingModal()" style="font-size:10px;color:rgba(255,255,255,.5);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)">Upgrade for ${isPaid()?'unlimited':'more'}</span>
           </div>` : ''}
           ${state.savedAnalyses.length === 0 ? `
             <div style="text-align:center;padding:36px 20px">
               <div style="width:52px;height:52px;border-radius:14px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg></div>
-              <p style="font-size:12.5px;color:rgba(255,255,255,.45);line-height:1.6">Run an analysis and tap <strong style="color:#fff;font-weight:700">Save to Watchlist</strong> to keep it here.</p>
+              <p style="font-size:13px;color:rgba(255,255,255,.45);line-height:1.6">Run an analysis and tap <strong style="color:#fff;font-weight:700">Save to Watchlist</strong> to keep it here.</p>
             </div>
           ` : state.savedAnalyses.map(s => `
             <div class="wl-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border-radius:11px;background:rgba(255,255,255,.03);margin-bottom:8px;border:1px solid rgba(255,255,255,.06)">
               <button onclick="openSavedAnalysis('${s.ticker}')" style="background:transparent;border:none;cursor:pointer;text-align:left;flex:1;min-width:0">
-                <div class="tnum" style="font-size:14px;font-weight:800;color:#fff;letter-spacing:-.01em">${s.ticker}</div>
-                <div style="font-size:10.5px;color:rgba(255,255,255,.4);margin-top:2px">Last analyzed: ${fmtSavedDate(s.updated_at || s.created_at)}</div>
+                <div class="tnum" style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.01em">${s.ticker}</div>
+                <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">Last analyzed: ${fmtSavedDate(s.updated_at || s.created_at)}</div>
               </button>
-              <button onclick="deleteSavedAnalysis('${s.ticker}')" title="Remove from watchlist" style="background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,.35);padding:6px;border-radius:8px;line-height:0;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
+              <button onclick="deleteSavedAnalysis('${s.ticker}')" title="Remove from watchlist" style="background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,.35);padding:6px;border-radius:10px;line-height:0;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
             </div>
           `).join('')}
         `}
@@ -1657,12 +1689,12 @@ function render(){
         <h3 style="font-size:20px;font-weight:800;color:#fff">Upgrade your plan</h3>
         <button onclick="state.pricingModal=false;render()" style="background:transparent;color:rgba(255,255,255,.4);font-size:20px;border:none;cursor:pointer">×</button>
       </div>
-      ${state.pricingNote ? `<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:11px 14px;margin-bottom:18px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span style="font-size:12.5px;color:#ffd700;font-weight:600;line-height:1.5">${state.pricingNote}</span></div>` : ''}
+      ${state.pricingNote ? `<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:11px 14px;margin-bottom:18px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span style="font-size:13px;color:#ffd700;font-weight:600;line-height:1.5">${state.pricingNote}</span></div>` : ''}
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
         <div style="background:#0d1426;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 18px">
           <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Free</h4>
-          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$0</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
-          <div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">${state.tier==='free'?'Your plan':'Free'}</div>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$0</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
+          <div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">${state.tier==='free'?'Your plan':'Free'}</div>
           <div style="display:flex;flex-direction:column;gap:9px">
             ${["3 analyses / day","3 AI models (Gemini, GPT-4o, Claude)","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
           </div>
@@ -1670,12 +1702,12 @@ function render(){
         <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:20px 18px;position:relative">
           <span style="position:absolute;top:-9px;left:18px;font-size:9px;font-weight:800;color:#0a0f1e;background:linear-gradient(180deg,#ffe566,#f0b90b);padding:3px 9px;border-radius:7px;letter-spacing:0.06em;box-shadow:0 3px 10px rgba(240,185,11,.3)">POPULAR</span>
           <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Pro</h4>
-          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$7.99</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$7.99</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
           ${state.tier==='pro'
-            ? `<div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
+            ? `<div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
             : state.tier==='premium'
-              ? `<div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">Included in Premium</div>`
-              : `<button onclick="state.pricingModal=false;startCheckout('pro')" class="btn-gold" style="width:100%;padding:11px;border-radius:9px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(240,185,11,.3)">Upgrade to Pro</button>`
+              ? `<div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">Included in Premium</div>`
+              : `<button onclick="state.pricingModal=false;startCheckout('pro')" class="btn-gold" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(240,185,11,.3)">Upgrade to Pro</button>`
           }
           <div style="display:flex;flex-direction:column;gap:9px">
             ${["10 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","10 saved watchlist slots","X-Sentiment: 2 / day","Claude Fable 5: 1 / day"].map(f=>featLine(f,'#ffd700','rgba(255,255,255,.8)')).join('')}
@@ -1683,10 +1715,10 @@ function render(){
         </div>
         <div style="background:linear-gradient(135deg,rgba(140,110,255,.14),rgba(61,133,255,.08));border:1.5px solid rgba(140,110,255,.45);border-radius:16px;padding:20px 18px;position:relative">
           <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Premium</h4>
-          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$19.99</span><span style="font-size:11px;color:rgba(255,255,255,.4)">/mo</span></div>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$19.99</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
           ${state.tier==='premium'
-            ? `<div style="width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
-            : `<button onclick="state.pricingModal=false;startCheckout('premium')" class="btn-primary" style="width:100%;padding:11px;border-radius:9px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(122,90,248,.35)">Upgrade to Premium</button>`
+            ? `<div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
+            : `<button onclick="state.pricingModal=false;startCheckout('premium')" class="btn-primary" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(122,90,248,.35)">Upgrade to Premium</button>`
           }
           <div style="display:flex;flex-direction:column;gap:9px">
             ${["20 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info & See Analysis reveals","Unlimited saved watchlist","X-Sentiment: 4 / day","Claude Fable 5: 5 / day"].map(f=>featLine(f,'#a48bff','rgba(255,255,255,.85)')).join('')}
@@ -1700,30 +1732,30 @@ function render(){
     <div onclick="event.stopPropagation()" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;z-index:70;background:#141b2d;border-radius:20px;border:1px solid rgba(255,255,255,.08);padding:32px 28px;box-shadow:0 30px 80px rgba(0,0,0,.6)">
       ${currentUser ? `
         <div style="text-align:center;margin-bottom:24px">
-          <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 12px;box-shadow:0 6px 18px rgba(61,133,255,.4),inset 0 1px 0 rgba(255,255,255,.25)">👤</div>
+          <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 6px 18px rgba(61,133,255,.4),inset 0 1px 0 rgba(255,255,255,.25)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/></svg></div>
           <h3 style="font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">My Account</h3>
-          <p style="font-size:12px;color:rgba(255,255,255,.4)">${currentUser.email}</p>
+          <p style="font-size:11.5px;color:rgba(255,255,255,.4)">${currentUser.email}</p>
         </div>
         <div style="background:#0d1426;border-radius:12px;padding:16px;margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:12px;color:rgba(255,255,255,.4)">Current Plan</span>
-            <span style="font-size:12px;font-weight:700;text-transform:capitalize;color:${state.tier==='premium'?'#a48bff':state.tier==='pro'?'#ffd700':'rgba(255,255,255,.6)'};background:${state.tier==='premium'?'rgba(140,110,255,.15)':state.tier==='pro'?'rgba(255,215,0,.15)':'rgba(255,255,255,.06)'};padding:3px 10px;border-radius:6px">${state.tier}</span>
+            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Current Plan</span>
+            <span style="font-size:11.5px;font-weight:700;text-transform:capitalize;color:${state.tier==='premium'?'#a48bff':state.tier==='pro'?'#ffd700':'rgba(255,255,255,.6)'};background:${state.tier==='premium'?'rgba(140,110,255,.15)':state.tier==='pro'?'rgba(255,215,0,.15)':'rgba(255,255,255,.06)'};padding:3px 10px;border-radius:6px">${state.tier}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:12px;color:rgba(255,255,255,.4)">Daily analyses</span>
-            <span style="font-size:12px;font-weight:600;color:#fff">${state.tier==='premium'?'20':state.tier==='pro'?'10':'3'} / day</span>
+            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Daily analyses</span>
+            <span style="font-size:11.5px;font-weight:600;color:#fff">${state.tier==='premium'?'20':state.tier==='pro'?'10':'3'} / day</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:12px;color:rgba(255,255,255,.4)">Saved watchlist</span>
-            <span style="font-size:12px;font-weight:600;color:#fff">${state.tier==='premium'?'Unlimited':state.tier==='pro'?'10':'2'}</span>
+            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Saved watchlist</span>
+            <span style="font-size:11.5px;font-weight:600;color:#fff">${state.tier==='premium'?'Unlimited':state.tier==='pro'?'10':'2'}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:12px;color:rgba(255,255,255,.4)">X-Sentiment</span>
-            <span style="font-size:12px;font-weight:600;color:${isPaid()?'#00c896':'#ff4757'}">${state.tier==='premium'?'4 / day':state.tier==='pro'?'2 / day':'Locked'}</span>
+            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">X-Sentiment</span>
+            <span style="font-size:11.5px;font-weight:600;color:${isPaid()?'#00c896':'#ff4757'}">${state.tier==='premium'?'4 / day':state.tier==='pro'?'2 / day':'Locked'}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span style="font-size:12px;color:rgba(255,255,255,.4)">Claude Fable 5</span>
-            <span style="font-size:12px;font-weight:600;color:${isPaid()?'#a48bff':'#ff4757'}">${state.tier==='premium'?'5 / day':state.tier==='pro'?'1 / day':'Locked'}</span>
+            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Claude Fable 5</span>
+            <span style="font-size:11.5px;font-weight:600;color:${isPaid()?'#a48bff':'#ff4757'}">${state.tier==='premium'?'5 / day':state.tier==='pro'?'1 / day':'Locked'}</span>
           </div>
         </div>
         ${state.tier==='premium'
@@ -1736,15 +1768,15 @@ function render(){
           <div style="width:56px;height:56px;border-radius:50%;background:rgba(61,133,255,.15);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px">📧</div>
           <h3 style="font-size:18px;font-weight:700;color:#fff;margin-bottom:8px">Check your email</h3>
           <p style="font-size:13px;color:rgba(255,255,255,.55);line-height:1.6;margin-bottom:20px">We sent a verification link to <span style="color:#fff;font-weight:600">${state.authEmail}</span>. Click the link in that email, then come back and sign in.</p>
-          <button onclick="state.authMode='login';state.authEmail='';state.authPassword='';render()" style="width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;background:#3d85ff;color:#fff;border:none;cursor:pointer">Got it, take me to Sign In</button>
+          <button onclick="state.authMode='login';state.authEmail='';state.authPassword='';render()" style="width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:700;background:#3d85ff;color:#fff;border:none;cursor:pointer">Got it, take me to Sign In</button>
         </div>
       ` : `
         <div style="text-align:center;margin-bottom:24px">
           <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;margin:0 auto 12px;box-shadow:0 5px 16px rgba(61,133,255,.4),inset 0 1px 0 rgba(255,255,255,.25)">TT</div>
           <h3 style="font-size:18px;font-weight:700;color:#fff">${state.authMode==='login'?'Welcome back':'Create account'}</h3>
-          <p style="font-size:12px;color:rgba(255,255,255,.4);margin-top:4px">${state.authMode==='login'?'Sign in to your TrueTradeAI account':'Sign up for free — 3 analyses per day'}</p>
+          <p style="font-size:11.5px;color:rgba(255,255,255,.4);margin-top:4px">${state.authMode==='login'?'Sign in to your TrueTradeAI account':'Sign up for free — 3 analyses per day'}</p>
         </div>
-        ${state.authError?`<div style="background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:8px;padding:10px 12px;font-size:12px;color:#ff4757;margin-bottom:16px">${state.authError}</div>`:''}
+        ${state.authError?`<div style="background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:10px;padding:10px 12px;font-size:11.5px;color:#ff4757;margin-bottom:16px">${state.authError}</div>`:''}
         <div style="margin-bottom:14px">
           <input id="auth-email" type="email" placeholder="Email address" value="${state.authEmail}"
             oninput="state.authEmail=this.value"
@@ -1754,14 +1786,14 @@ function render(){
           <input id="auth-password" type="password" placeholder="Password"
             oninput="state.authPassword=this.value"
             style="width:100%;padding:12px 14px;padding-right:42px;border-radius:10px;background:#0d1426;border:1px solid rgba(255,255,255,.1);color:#fff;font-size:13px;outline:none">
-          <button onclick="var i=document.getElementById('auth-password');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;font-size:14px;color:rgba(255,255,255,.4)">👁</button>
+          <button onclick="var i=document.getElementById('auth-password');i.type=i.type==='password'?'text':'password';this.textContent=i.type==='password'?'👁':'🙈'" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:transparent;border:none;cursor:pointer;font-size:15px;color:rgba(255,255,255,.4)">👁</button>
         </div>
-        <button onclick="handleAuth()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;margin-bottom:14px;box-shadow:0 4px 14px rgba(61,133,255,.32)">
+        <button onclick="handleAuth()" class="btn-primary" style="width:100%;padding:13px;border-radius:10px;font-size:15px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;margin-bottom:14px;box-shadow:0 4px 14px rgba(61,133,255,.32)">
           ${state.authMode==='login'?'Sign In':'Create Account'}
         </button>
-        <p style="text-align:center;font-size:12px;color:rgba(255,255,255,.4)">
-          ${state.authMode==='login'?`Don't have an account? <span onclick="state.authMode='signup';state.authError='';render()" style="color:#3d85ff;cursor:pointer">Sign up</span>`
-          :`Already have an account? <span onclick="state.authMode='login';state.authError='';render()" style="color:#3d85ff;cursor:pointer">Sign in</span>`}
+        <p style="text-align:center;font-size:11.5px;color:rgba(255,255,255,.4)">
+          ${state.authMode==='login'?`Don't have an account? <span onclick="state.authMode='signup';state.authError='';render()" style="color:#5a9bff;cursor:pointer">Sign up</span>`
+          :`Already have an account? <span onclick="state.authMode='login';state.authError='';render()" style="color:#5a9bff;cursor:pointer">Sign in</span>`}
         </p>
       `}
     </div>`:""}
