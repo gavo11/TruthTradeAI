@@ -466,7 +466,10 @@ app.post('/api/create-checkout-session', async (req, res) => {
     const { origin, plan } = req.body;
     const tier = plan === 'premium' ? 'premium' : 'pro';
     const priceId = tier === 'premium' ? process.env.STRIPE_PREMIUM_PRICE_ID : process.env.STRIPE_PRICE_ID;
-    const fallback = 'https://truetradeai.com';
+    // Primary domain is now quantcallai.com. The real redirect URLs are built from the
+    // request `origin` below (so a user on either live domain returns to that same domain);
+    // this fallback only applies when no valid origin is sent.
+    const fallback = 'https://quantcallai.com';
     let baseUrl = fallback;
     if (origin) {
       try {
