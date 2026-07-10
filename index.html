@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>QuantCall AI — 5 AI quants. One call.</title>
 <meta name="description" content="QuantCall AI runs any stock through five AI models at once and synthesizes one consensus call — bull case, bear case, sentiment, catalysts, and risks in one place.">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
   :root {
@@ -864,6 +865,30 @@ function fablePromoBanner(){
 
 function featLine(text, cColor, tColor){ return `<div style="display:flex;align-items:flex-start;gap:7px"><span style="color:${cColor};font-size:11.5px;margin-top:1px;flex-shrink:0">✓</span><span style="font-size:11.5px;color:${tColor};line-height:1.45">${text}</span></div>`; }
 
+// QuantCall AI brand mark — five model dots (Gemini/Claude/GPT-4o/Perplexity/Grok) crowning
+// a gold-irised eye atop five converging rays. Single source of truth for the nav, footer,
+// and auth-modal placements; see assets/logo-mark.svg for the standalone file.
+function logoMark(size){
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" role="img" aria-label="QuantCall AI" style="flex-shrink:0">
+    <circle cx="27.7" cy="20.3" r="4.5" fill="#4285f4"/>
+    <circle cx="33.5" cy="7.5" r="4.5" fill="#ff7a50"/>
+    <circle cx="42.8" cy="14.4" r="4.5" fill="#10a37f"/>
+    <circle cx="58.7" cy="14.4" r="4.5" fill="#a855f7"/>
+    <circle cx="70.5" cy="19.4" r="4.5" fill="#eef2fb"/>
+    <path d="M29 30 Q50 9 71 30 Q50 51 29 30 Z" fill="#e8edf7"/>
+    <circle cx="50" cy="30" r="8.5" fill="#f4c31d"/>
+    <circle cx="50" cy="30" r="3.8" fill="#0a0f1e"/>
+    <circle cx="52.5" cy="26.5" r="1.5" fill="#ffffff"/>
+    <g fill="#e8edf7">
+      <path d="M51.5 50 L55.5 94 L44.5 94 L48.5 50 Z"/>
+      <path d="M54.1 49 L73 89 L62.6 92.8 L51.3 50 Z"/>
+      <path d="M56.3 47.2 L87.6 78.3 L79.2 85.4 L54 49.1 Z"/>
+      <path d="M45.9 49 L27 89 L37.4 92.8 L48.7 50 Z"/>
+      <path d="M43.7 47.2 L12.4 78.3 L20.8 85.4 L46 49.1 Z"/>
+    </g>
+  </svg>`;
+}
+
 function infoBtn(tooltipTitle, tooltipText) {
   const safeTitle = tooltipTitle.replace(/'/g, "&#39;");
   const safeText = tooltipText.replace(/'/g, "&#39;");
@@ -1078,7 +1103,7 @@ function render(){
     <nav style="position:sticky;top:0;z-index:50;background:rgba(10,15,30,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.07);height:56px">
       <div style="max-width:900px;margin:0 auto;padding:0 16px;height:100%;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:10px;cursor:pointer" onclick="state.ticker='';state.searchInput='';render()">
-          <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;letter-spacing:0;box-shadow:0 4px 14px rgba(61,133,255,.4), inset 0 1px 0 rgba(255,255,255,.25)">Q</div>
+          <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${logoMark(34)}</div>
           <span class="nav-brand" style="font-weight:800;font-size:16px;color:#fff;letter-spacing:-.02em">QuantCall <span style="color:#5a9bff">AI</span></span>
         </div>
         <div class="nav-actions" style="display:flex;align-items:center;gap:9px">
@@ -1633,7 +1658,7 @@ function render(){
 
     <footer style="border-top:1px solid rgba(255,255,255,.05);background:#0a0f1e;padding:24px 16px">
       <div style="max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center">
-        <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;box-shadow:0 4px 12px rgba(61,133,255,.35),inset 0 1px 0 rgba(255,255,255,.25);font-size:15px">Q</div><span style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-.02em">QuantCall <span style="color:#5a9bff">AI</span></span></div>
+        <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${logoMark(30)}</div><span style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-.02em">QuantCall <span style="color:#5a9bff">AI</span></span></div>
         <div style="display:flex;gap:18px;flex-wrap:wrap">
           <a href="about.html" onclick="window.location.href='about.html';return false;" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">About</a>
           <a href="pricing.html" onclick="window.location.href='pricing.html';return false;" style="font-size:11.5px;color:rgba(255,255,255,.35);text-decoration:none;cursor:pointer">Pricing</a>
@@ -1775,7 +1800,7 @@ function render(){
         </div>
       ` : `
         <div style="text-align:center;margin-bottom:24px">
-          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;margin:0 auto 12px;box-shadow:0 5px 16px rgba(61,133,255,.4),inset 0 1px 0 rgba(255,255,255,.25)">Q</div>
+          <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${logoMark(44)}</div>
           <h3 style="font-size:18px;font-weight:700;color:#fff">${state.authMode==='login'?'Welcome back':'Create account'}</h3>
           <p style="font-size:11.5px;color:rgba(255,255,255,.4);margin-top:4px">${state.authMode==='login'?'Sign in to your QuantCall AI account':'Sign up for free — 3 analyses per day'}</p>
         </div>
