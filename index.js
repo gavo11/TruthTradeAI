@@ -607,6 +607,28 @@ app.post('/api/analyze-model', async (req, res) => {
   if (model && model !== 'claude') return res.status(400).json({ error: 'unsupported_model' });
   const tier = await getUserTier(req.headers['authorization']);
   const userId = await getUserId(req.headers['authorization']);
+
+  // ── SECURITY: paid-only + daily analysis cap ──────────────────────────────
+  // This endpoint runs a full paid-budget Claude + Brave call, so it must be gated
+  // exactly like /api/analyze. Reject Free (and anonymous — getUserTier returns
+  // 'free' for them) outright, and meter every call against the SAME daily analysis
+  // counter so it can't be used to bypass the tier's analysis cap or rack up
+  // unlimited Anthropic/Brave cost. Both checks are server-side — no client flag
+  // is trusted for either the tier or the cap.
+  if (tier === 'free') {
+    return res.status(403).json({ error: 'tier_locked', message: 'Model swap is a paid feature — upgrade to unlock it.', tier });
+  }
+  const analysisLimit = TIER_ANALYSIS_LIMIT[tier];
+  const analysisUsage = await checkAndIncrementUsage(getRequestIdentifier(req, userId), analysisLimit);
+  if (!analysisUsage.allowed) {
+    return res.status(429).json({
+      error: 'Daily limit reached',
+      message: `You've used all ${analysisLimit} analyses for today on the ${tier} plan.`,
+      usageRemaining: 0,
+      tier
+    });
+  }
+
   const fableLimit = TIER_FABLE_LIMIT[tier] || 0;
   const fableId = `fable:${getRequestIdentifier(req, userId)}`;
   const wantsFable = req.body?.useFable === true && tier !== 'free' && fableLimit > 0;
@@ -633,6 +655,7 @@ app.post('/api/analyze-model', async (req, res) => {
       fableUsed: useFableModel,
       fableRemaining,
       fableLimit,
+      usageRemaining: analysisUsage.remaining,
       tier
     });
   } catch (e) {
