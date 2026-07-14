@@ -741,10 +741,18 @@ async function runClaudeSwitch(useFableModel){
       state.claudeModelName = json.claudeModel || (json.fableUsed ? 'Claude Fable 5' : 'Claude Haiku 4.5');
       state.fableRemaining = json.fableRemaining ?? state.fableRemaining;
       state.fableLimit = json.fableLimit ?? state.fableLimit;
+      // This endpoint now consumes a daily analysis (server-side cap) — keep the counter in sync.
+      state.usageRemaining = json.usageRemaining ?? state.usageRemaining;
       state.claudeError = null;
     } else {
       console.warn('Claude re-analysis failed:', json.error || res.status);
-      state.claudeError = `${useFableModel ? 'Fable 5' : 'Haiku'} analysis failed. Tap to retry.`;
+      // Daily-cap (429) / paid-locked (403): show the server's reason, not a retry loop.
+      if ((res.status === 429 || res.status === 403) && json.message) {
+        state.claudeError = json.message;
+        if (res.status === 429) state.usageRemaining = 0;
+      } else {
+        state.claudeError = `${useFableModel ? 'Fable 5' : 'Haiku'} analysis failed. Tap to retry.`;
+      }
       if (useFableModel) state.useFable = false; // never gold on a failed Fable call
     }
   } catch (e) {
