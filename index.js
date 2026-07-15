@@ -446,6 +446,39 @@ async function getUsageCount(identifier) {
   }
 }
 
+// ── Increment today's usage for an identifier by 1, unconditionally ──
+// Used AFTER a successful gated call (X-Sentiment, Fable 5) so that a failed or
+// timed-out call never burns the user's (very limited) daily quota. Returns
+// { remaining } based on the post-increment count.
+async function incrementUsage(identifier, limit) {
+  const today = new Date().toISOString().slice(0, 10);
+  const current = await getUsageCount(identifier);
+  const newCount = current + 1;
+  try {
+    const upsertRes = await fetch(
+      `${SUPABASE_URL}/rest/v1/usage`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'resolution=merge-duplicates,return=minimal'
+        },
+        body: JSON.stringify({ identifier, date: today, count: newCount })
+      }
+    );
+    if (!upsertRes.ok) {
+      console.error('[Usage] incrementUsage upsert failed:', await upsertRes.text());
+      return { remaining: Math.max(0, limit - current) };
+    }
+    return { remaining: Math.max(0, limit - newCount) };
+  } catch (e) {
+    console.error('[Usage] incrementUsage error:', e.message);
+    return { remaining: Math.max(0, limit - current) };
+  }
+}
+
 // ── Create a Stripe Checkout session for Pro upgrade ──────────────────────
 app.post('/api/create-checkout-session', async (req, res) => {
   const authHeader = req.headers['authorization'];
@@ -543,13 +576,17 @@ app.post('/api/x-sentiment', async (req, res) => {
   if (!limit || limit <= 0) {
     return res.status(403).json({ error: 'tier_locked', message: 'X-Sentiment is a Pro feature — upgrade to unlock it.', tier, xSentRemaining: 0 });
   }
-  const usage = await checkAndIncrementUsage(`xsent:${getRequestIdentifier(req, userId)}`, limit);
-  if (!usage.allowed) {
+  // Check the cap WITHOUT consuming a use, so a failed Grok call doesn't burn one of
+  // the user's (2–4/day) X-Sentiment checks. We only increment after a real success.
+  const xsentId = `xsent:${getRequestIdentifier(req, userId)}`;
+  const usedToday = await getUsageCount(xsentId);
+  if (usedToday >= limit) {
     return res.status(429).json({ error: 'xsent_limit_reached', message: `You've used all ${limit} X-Sentiment checks for today on the ${tier} plan.`, tier, xSentRemaining: 0 });
   }
   try {
     const result = await callGrokXSentiment(String(ticker).toUpperCase());
-    res.json({ score: result.sentimentScore ?? 50, summary: result.summary || null, tier, xSentRemaining: usage.remaining });
+    const inc = await incrementUsage(xsentId, limit); // consume the use only now, on success
+    res.json({ score: result.sentimentScore ?? 50, summary: result.summary || null, tier, xSentRemaining: inc.remaining });
   } catch (e) {
     console.error(`[x-sentiment] ${ticker} failed:`, e.message);
     res.status(500).json({ error: e.message, tier });
@@ -631,18 +668,19 @@ app.post('/api/analyze-model', async (req, res) => {
 
   const fableLimit = TIER_FABLE_LIMIT[tier] || 0;
   const fableId = `fable:${getRequestIdentifier(req, userId)}`;
+  const fableUsedToday = await getUsageCount(fableId);
   const wantsFable = req.body?.useFable === true && tier !== 'free' && fableLimit > 0;
-  let useFableModel = false;
-  let fableRemaining;
-  if (wantsFable) {
-    const fableUsage = await checkAndIncrementUsage(fableId, fableLimit);
-    useFableModel = fableUsage.allowed;
-    fableRemaining = fableUsage.remaining;
-  } else {
-    fableRemaining = Math.max(0, fableLimit - await getUsageCount(fableId));
-  }
+  // Decide whether to RUN Fable (under cap) but DON'T consume the daily use yet — a
+  // failed/timed-out Fable call must not burn one of the user's (1–5/day) Fable uses.
+  // We increment only after runSingleClaude actually returns below.
+  const useFableModel = wantsFable && fableUsedToday < fableLimit;
+  let fableRemaining = Math.max(0, fableLimit - fableUsedToday);
   try {
     const result = await runSingleClaude(String(ticker).toUpperCase(), useFableModel);
+    if (useFableModel) {
+      const inc = await incrementUsage(fableId, fableLimit); // consume only on success
+      fableRemaining = inc.remaining;
+    }
     res.json({
       model: 'Claude',
       bullScore: result.bullScore ?? 50,
@@ -690,19 +728,16 @@ app.post('/api/analyze', async (req, res) => {
   // once the cap is hit we silently fall back to Haiku instead of erroring.
   const fableLimit = TIER_FABLE_LIMIT[tier] || 0;
   const fableId = `fable:${getRequestIdentifier(req, userId)}`;
+  const fableUsedToday = await getUsageCount(fableId);
   const wantsFable = req.body?.useFable === true && tier !== 'free' && fableLimit > 0;
-  let useFableModel = false;
-  let fableRemaining;
-  if (wantsFable) {
-    const fableUsage = await checkAndIncrementUsage(fableId, fableLimit);
-    useFableModel = fableUsage.allowed;      // false once today's cap is reached
-    fableRemaining = fableUsage.remaining;   // remaining after this use, or 0 if capped
-  } else {
-    // Not consuming a Fable use — just report how many are left today.
-    fableRemaining = Math.max(0, fableLimit - await getUsageCount(fableId));
-  }
+  // Decide whether to RUN Fable now (under cap), but DON'T consume the daily use yet —
+  // we only increment after the Claude(Fable) call actually succeeds (see the block
+  // after Promise.allSettled), so a failed/timed-out Fable call never burns one of the
+  // user's (1–5/day) Fable uses. Once the cap is reached we silently fall back to Haiku.
+  const useFableModel = wantsFable && fableUsedToday < fableLimit;
+  let fableRemaining = Math.max(0, fableLimit - fableUsedToday);
   const claudeModelId = useFableModel ? 'claude-fable-5' : 'claude-haiku-4-5-20251001';
-  const claudeModelName = useFableModel ? 'Claude Fable 5' : 'Claude Haiku 4.5';
+  let claudeModelName = useFableModel ? 'Claude Fable 5' : 'Claude Haiku 4.5';
 
   const systemPrompt = SYSTEM_PROMPT;
 
@@ -935,6 +970,20 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       if (r.error) console.error(`[${r.model}] FAILED for ${ticker}: ${r.error}`);
     });
 
+    // Fable quota is consumed ONLY when the Claude(Fable) call actually succeeded.
+    // A failed Fable call falls back to the error placeholder — don't burn the use,
+    // and report Haiku so the UI shows no premium (gold) state for a failed call.
+    let fableUsed = useFableModel;
+    if (useFableModel) {
+      if (claude.status === 'fulfilled') {
+        const inc = await incrementUsage(fableId, fableLimit);
+        fableRemaining = inc.remaining;
+      } else {
+        fableUsed = false;
+        claudeModelName = 'Claude Haiku 4.5';
+      }
+    }
+
     const valid = results.filter(r => !r.error);
     const avgBull = valid.length
       ? Math.round(valid.reduce((a, b) => a + b.bullScore, 0) / valid.length)
@@ -950,7 +999,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       tier,
       usageRemaining,
       claudeModel:          claudeModelName,
-      fableUsed:            useFableModel,
+      fableUsed:            fableUsed,
       fableRemaining,
       fableLimit,
       companyName:          best?.companyName        || ticker,
