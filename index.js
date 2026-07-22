@@ -7,7 +7,7 @@ const port = process.env.PORT || 3000;
 
 const SUPABASE_URL = 'https://ncqrxtczvcpjocurlwzb.supabase.co';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const TIER_ANALYSIS_LIMIT = { free: 3, pro: 10, premium: 20 };
+const TIER_ANALYSIS_LIMIT = { free: 2, pro: 10, premium: 20 };
 const TIER_XSENT_LIMIT = { free: 0, pro: 2, premium: 4 };
 const TIER_SAVED_LIMIT = { free: 2, pro: 10, premium: Infinity };
 const TIER_FABLE_LIMIT = { free: 0, pro: 1, premium: 5 };
@@ -42,6 +42,9 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       const tier = session.metadata?.tier === 'premium' ? 'premium' : 'pro';
       if (userId) {
         await setTier(userId, tier);
+        // Persist the Stripe customer id so "Manage Subscription" can open the billing
+        // portal later. Best-effort and separate from setTier (see storeCustomerId).
+        if (session.customer) await storeCustomerId(userId, session.customer);
         console.log(`[Stripe Webhook] User ${userId} upgraded to ${tier}.`);
       }
     }
@@ -49,10 +52,15 @@ app.post('/api/stripe-webhook', express.raw({ type: 'application/json' }), async
       const subscription = event.data.object;
       const isActive = subscription.status === 'active' || subscription.status === 'trialing';
       const userId = subscription.metadata?.userId;
-      const tier = isActive ? (subscription.metadata?.tier === 'premium' ? 'premium' : 'pro') : 'free';
+      // Cancellation is end-of-period: the immediate `updated` event still has status
+      // 'active' (cancel_at_period_end=true) so the user KEEPS their tier until the
+      // period ends, when `deleted` fires and drops them to free. For an active sub we
+      // derive the tier from the CURRENT price (handles portal Pro↔Premium switches,
+      // where metadata.tier is stale).
+      const tier = isActive ? tierFromSubscription(subscription) : 'free';
       if (userId) {
         await setTier(userId, tier);
-        console.log(`[Stripe Webhook] User ${userId} tier set to ${tier} (subscription ${subscription.status}).`);
+        console.log(`[Stripe Webhook] User ${userId} tier set to ${tier} (subscription ${subscription.status}, cancel_at_period_end=${subscription.cancel_at_period_end === true}).`);
       }
     }
     res.json({ received: true });
@@ -204,9 +212,40 @@ async function braveSearch(query) {
 }
 
 // Prepend a live-search block to a model prompt (no-op if the search came back empty).
+// NOTE: search snippets are for recent NEWS and DATES, not price — the authoritative
+// current price is injected separately via priceContext() (a real-time quote), because
+// search snippets can carry stale/outdated prices (the bug this guards against).
 function withLiveSearch(ticker, searchBlock, prompt) {
   if (!searchBlock) return prompt;
-  return `Current information from a live web search for ${ticker} (use this for current price, recent news, and dates — it is more up to date than your training data):\n\n${searchBlock}\n\n---\n\n${prompt}`;
+  return `Current information from a live web search for ${ticker} (use this for recent news and dates — it is more up to date than your training data):\n\n${searchBlock}\n\n---\n\n${prompt}`;
+}
+
+// ── Real-time price fetch (Yahoo Finance public quote, no API key) ──────────────
+// Fetched FRESH on every analysis (no server cache; Cache-Control: no-cache) so the
+// injected ground-truth price reflects the real market at the moment the analysis runs.
+// regularMarketPrice is the current/last market price. Throws on any failure so the
+// caller can fall back to running without an injected price (never a stale guess).
+async function fetchLivePrice(ticker) {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json', 'Cache-Control': 'no-cache' },
+    signal: AbortSignal.timeout(6000)
+  });
+  if (!res.ok) throw new Error(`Yahoo quote returned ${res.status}`);
+  const data = await res.json();
+  const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+  if (typeof price !== 'number' || !isFinite(price)) throw new Error('no regularMarketPrice in Yahoo response');
+  return Math.round(price * 100) / 100;
+}
+
+// Ground-truth price context prepended to EVERY model's prompt. Framed as internal
+// reasoning context only: models should use it if price is relevant, but must NOT open
+// by restating it or cite a different price. Keeps reasoning varied/natural across the
+// five models while making any price they do mention factually correct. No-op if the
+// live price is unavailable (we never inject a guessed price).
+function priceContext(ticker, price) {
+  if (price == null) return '';
+  return `For your internal reasoning only, the current live price of ${ticker} is $${price} (a real-time quote captured at the moment this analysis runs) — use this as accurate context if relevant to your analysis. Do not begin your response by restating this price, and do not reference a different price.\n\n`;
 }
 
 // ── Single Claude call (Haiku OR Fable 5), with real error surfacing ──────────
@@ -364,6 +403,80 @@ async function setTier(userId, tier) {
   } catch (e) {
     console.error(`[setTier] Error updating user ${userId}:`, e.message);
   }
+}
+
+// ── Persist the user's Stripe customer id on their profile (best-effort) ──────
+// Kept SEPARATE from setTier and non-fatal so that a missing `stripe_customer_id`
+// column never blocks an upgrade. Used by the billing-portal endpoint; if the write
+// never lands, the portal falls back to an email→customer lookup.
+async function storeCustomerId(userId, customerId) {
+  if (!userId || !customerId) return;
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ stripe_customer_id: customerId })
+      }
+    );
+    if (!res.ok) console.warn(`[storeCustomerId] could not save for ${userId} (is the stripe_customer_id column present?):`, (await res.text()).slice(0, 200));
+  } catch (e) {
+    console.warn(`[storeCustomerId] error for ${userId}:`, e.message);
+  }
+}
+
+// ── Resolve the user's Stripe customer id: stored on profile, else look it up by ──
+// email in Stripe (and backfill it). Returns null if the user has no Stripe customer.
+async function getStripeCustomerId(userId, authHeader) {
+  // 1. Prefer the id stored on the profile at checkout.
+  try {
+    const r = await fetch(
+      `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=stripe_customer_id`,
+      { headers: { 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY } }
+    );
+    if (r.ok) {
+      const rows = await r.json();
+      const cid = rows?.[0]?.stripe_customer_id;
+      if (cid) return cid;
+    }
+  } catch (e) {
+    console.warn('[getStripeCustomerId] profile lookup failed:', e.message);
+  }
+  // 2. Fallback: find the customer by the user's email (covers pre-existing subscribers
+  //    from before we stored the id), then backfill it for next time.
+  try {
+    const token = authHeader.slice(7);
+    const ures = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY }
+    });
+    if (ures.ok) {
+      const u = await ures.json();
+      if (u?.email) {
+        const list = await stripe.customers.list({ email: u.email, limit: 1 });
+        const cid = list?.data?.[0]?.id;
+        if (cid) { await storeCustomerId(userId, cid); return cid; }
+      }
+    }
+  } catch (e) {
+    console.warn('[getStripeCustomerId] email→customer fallback failed:', e.message);
+  }
+  return null;
+}
+
+// ── Map a subscription to a tier from its CURRENT price id (source of truth for ──
+// portal plan switches, where checkout-time metadata.tier goes stale). Falls back to
+// metadata only if the price doesn't match a configured plan.
+function tierFromSubscription(subscription) {
+  const priceId = subscription?.items?.data?.[0]?.price?.id;
+  if (priceId && priceId === process.env.STRIPE_PREMIUM_PRICE_ID) return 'premium';
+  if (priceId && priceId === process.env.STRIPE_PRICE_ID) return 'pro';
+  return subscription?.metadata?.tier === 'premium' ? 'premium' : 'pro';
 }
 
 // ── Get a usable identifier for usage tracking: userId if signed in, else IP ──
@@ -539,6 +652,37 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
 });
 
+// ── Create a Stripe Billing Portal session — "Manage Subscription" ────────────
+// Lets a paid user cancel (at period end), switch Pro↔Premium, or update payment
+// method via Stripe's hosted portal (configured in the Stripe dashboard). Auth-gated:
+// we resolve the customer id from the SERVER-verified user's own profile/email — the
+// client can never pass in a customer id, so a user can only ever manage their own sub.
+app.post('/api/create-portal-session', async (req, res) => {
+  const authHeader = req.headers['authorization'];
+  const userId = await getUserId(authHeader);
+  if (!userId) return res.status(401).json({ error: 'not_signed_in' });
+  // Only paid users have a subscription to manage (also avoids a needless Stripe call).
+  const tier = await getUserTier(authHeader);
+  if (tier === 'free') {
+    return res.status(403).json({ error: 'no_subscription', message: 'No active subscription to manage.' });
+  }
+  try {
+    const customerId = await getStripeCustomerId(userId, authHeader);
+    if (!customerId) {
+      console.warn(`[Portal Session] No Stripe customer found for user ${userId}`);
+      return res.status(404).json({ error: 'no_customer', message: 'We could not locate your subscription. Please contact support.' });
+    }
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: 'https://quantcallai.com'
+    });
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('[Portal Session] Error:', err.message);
+    res.status(500).json({ error: 'Failed to create portal session' });
+  }
+});
+
 // Standalone Grok X-Sentiment (its own gated feature, separate from /api/analyze).
 async function callGrokXSentiment(ticker) {
   const xSentimentPrompt = `Search X (Twitter) for the most recent posts and discussion about ${ticker} stock. Based ONLY on what people are actually saying on X right now, gauge retail/social sentiment.
@@ -625,10 +769,18 @@ async function runSingleClaude(ticker, useFableModel) {
   } catch (e) {
     console.warn(`[analyze-model] Brave search failed for ${ticker}: ${e.message} — proceeding without`);
   }
+  // Inject the same fresh ground-truth price as /api/analyze, so a Claude/Fable refresh
+  // never states a price different from the one already shown in the UI.
+  let livePrice = null;
+  try {
+    livePrice = await fetchLivePrice(ticker);
+  } catch (e) {
+    console.warn(`[analyze-model] Live price fetch failed for ${ticker}: ${e.message} — proceeding without`);
+  }
   const result = await callAnthropicMessages(
     modelId,
     SYSTEM_PROMPT,
-    withLiveSearch(ticker, searchBlock, buildProShortPrompt(ticker)),
+    priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, buildProShortPrompt(ticker)),
     'pro' // Fable/single-model refresh is paid-only; use the detailed token budget
   );
   return { ...result, model: 'Claude' };
@@ -709,7 +861,7 @@ app.post('/api/analyze', async (req, res) => {
   const tier = await getUserTier(req.headers['authorization']);
   const userId = await getUserId(req.headers['authorization']);
 
-  // ── Daily analysis cap (all tiers: free 3 / pro 10 / premium 20) — BEFORE any AI calls ──
+  // ── Daily analysis cap (all tiers: free 2 / pro 10 / premium 20) — BEFORE any AI calls ──
   const analysisLimit = TIER_ANALYSIS_LIMIT[tier];
   const usage = await checkAndIncrementUsage(getRequestIdentifier(req, userId), analysisLimit);
   if (!usage.allowed) {
@@ -807,11 +959,19 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
     .then(block => { console.log(`[Brave] Live search OK for ${ticker} — injecting ${block.length} chars into GPT/Claude/Grok`); return block; })
     .catch(err => { console.warn(`[Brave] Live search FAILED for ${ticker}: ${err.message} — proceeding WITHOUT injected results (models answer from training data)`); return ''; });
 
+  // One fresh real-time price fetch per analysis, injected as ground truth into ALL five
+  // models so any price they mention is correct. On failure we proceed WITHOUT it (never
+  // inject a stale/guessed price). Resolved value also becomes the authoritative UI price.
+  const pricePromise = fetchLivePrice(ticker)
+    .then(p => { console.log(`[Price] Live price for ${ticker}: $${p} — injecting ground-truth into all models`); return p; })
+    .catch(err => { console.warn(`[Price] Live price fetch FAILED for ${ticker}: ${err.message} — proceeding WITHOUT injected price`); return null; });
+
   async function callGemini() {
+    const livePrice = await pricePromise;
     async function geminiRequest(modelName, useSearch) {
       const body = {
         systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ parts: [{ text: geminiPrompt }] }],
+        contents: [{ parts: [{ text: priceContext(ticker, livePrice) + geminiPrompt }] }],
         generationConfig: { temperature: 0.2, maxOutputTokens: 16384 }
       };
       if (useSearch) body.tools = [{ google_search: {} }];
@@ -876,6 +1036,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
 
   async function callGPT() {
     const searchBlock = await searchPromise;
+    const livePrice = await pricePromise;
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
@@ -884,7 +1045,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
         max_tokens: tier !== 'free' ? 450 : 250,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: withLiveSearch(ticker, searchBlock, gptClaudePrompt) }
+          { role: 'user', content: priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, gptClaudePrompt) }
         ]
       })
     });
@@ -897,10 +1058,11 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
 
   async function callClaude(modelId) {
     const searchBlock = await searchPromise;
+    const livePrice = await pricePromise;
     const result = await callAnthropicMessages(
       modelId,
       systemPrompt,
-      withLiveSearch(ticker, searchBlock, gptClaudePrompt),
+      priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, gptClaudePrompt),
       tier
     );
     return { ...result, model: 'Claude' };
@@ -908,6 +1070,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
 
   async function callPerplexity() {
     if (tier === 'free') return null;
+    const livePrice = await pricePromise;
     const response = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
@@ -916,7 +1079,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
         max_tokens: 450,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: proShortPrompt }
+          { role: 'user', content: priceContext(ticker, livePrice) + proShortPrompt }
         ]
       })
     });
@@ -930,6 +1093,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   async function callGrok() {
     if (tier === 'free') return null;
     const searchBlock = await searchPromise;
+    const livePrice = await pricePromise;
     const response = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROK_API_KEY}` },
@@ -938,7 +1102,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
         max_tokens: 450,
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: withLiveSearch(ticker, searchBlock, proShortPrompt) }
+          { role: 'user', content: priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, proShortPrompt) }
         ]
       })
     });
@@ -957,6 +1121,11 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       callPerplexity(),
       callGrok()
     ]);
+
+    // Authoritative real-time price (already resolved). When available it OVERRIDES any
+    // model-returned price for the UI, so the displayed price and the price injected into
+    // every model's reasoning are the same number by construction.
+    const livePrice = await pricePromise;
 
     const results = [
       gemini.status === 'fulfilled' ? gemini.value : { error: gemini.reason?.message, bullScore: 50, bearScore: 50, model: 'Gemini' },
@@ -1003,7 +1172,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       fableRemaining,
       fableLimit,
       companyName:          best?.companyName        || ticker,
-      currentPrice:         best?.currentPrice       || null,
+      currentPrice:         livePrice ?? best?.currentPrice ?? null,
       peRatio:              best?.peRatio            || null,
       marketCap:            best?.marketCap          || null,
       week52Low:            best?.week52Low          || null,
