@@ -229,6 +229,31 @@ async function startCheckout(plan) {
   }
 }
 
+// Open Stripe's billing portal (cancel / switch plan / update payment). Paid-only;
+// the backend re-verifies the tier and resolves the customer id server-side.
+async function openBillingPortal() {
+  try {
+    const { data: { session } } = await sbClient.auth.getSession();
+    if (!session?.access_token) { state.authModal = true; state.authMode = 'login'; render(); return; }
+    state.portalLoading = true; render();
+    const res = await fetch(`${BACKEND}/api/create-portal-session`, {
+      method: 'POST', headers: await authHeaders()
+    });
+    const json = await res.json().catch(() => ({}));
+    if (json.url) {
+      window.location.href = json.url; // hand off to Stripe's hosted portal
+    } else {
+      state.portalLoading = false; render();
+      showCopyToast(json.message || 'Could not open the billing portal. Please try again.');
+      console.error('Portal error:', json.error || res.status);
+    }
+  } catch (e) {
+    state.portalLoading = false; render();
+    console.error('Portal error:', e);
+    showCopyToast('Could not open the billing portal. Please try again.');
+  }
+}
+
 async function refreshProStatus() {
   const { data: { session } } = await sbClient.auth.getSession();
   if (!session?.access_token) {
@@ -635,7 +660,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#e3b341":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false};
 
 function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
 function isPremium(){ return state.tier === 'premium'; }
@@ -1170,7 +1195,7 @@ function render(){
           const rem = state.usageRemaining;
           const zero = rem === 0;
           const dot = zero ? '#ff4757' : '#e3b341';
-          const txt = rem === null ? '3 free analyses per day'
+          const txt = rem === null ? '2 free analyses per day'
             : zero ? 'No free analyses left today'
             : `${rem} ${rem === 1 ? 'analysis' : 'analyses'} left today`;
           const resets = rem === null ? '' : `<span style="color:rgba(255,255,255,.25);font-size:10px">· resets 12 AM UTC</span>`;
@@ -1745,7 +1770,7 @@ function render(){
           <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$0</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
           <div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">${state.tier==='free'?'Your plan':'Free'}</div>
           <div style="display:flex;flex-direction:column;gap:9px">
-            ${["3 analyses / day","3 AI models (Gemini, GPT-4o, Claude)","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
+            ${["2 analyses / day","3 AI models (Gemini, GPT-4o, Claude)","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
           </div>
         </div>
         <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:20px 18px;position:relative">
@@ -1792,7 +1817,7 @@ function render(){
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Daily analyses</span>
-            <span style="font-size:11.5px;font-weight:600;color:#fff">${state.tier==='premium'?'20':state.tier==='pro'?'10':'3'} / day</span>
+            <span style="font-size:11.5px;font-weight:600;color:#fff">${state.tier==='premium'?'20':state.tier==='pro'?'10':'2'} / day</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Saved watchlist</span>
@@ -1811,6 +1836,10 @@ function render(){
           ? `<div style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.1);color:#00c896;border:1.5px solid rgba(0,200,150,.3);text-align:center;margin-bottom:10px">✓ You're on Premium</div>`
           : `<button onclick="showPricingModal()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer;margin-bottom:10px">${state.tier==='pro'?'Upgrade to Premium':'Upgrade your plan'}</button>`
         }
+        ${isPaid() ? `<button onclick="openBillingPortal()" ${state.portalLoading?'disabled':''} style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);cursor:${state.portalLoading?'default':'pointer'};margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:7px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+          ${state.portalLoading?'Opening…':'Manage Subscription'}
+        </button>` : ''}
         <button onclick="signOut();state.authModal=false;render()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08);cursor:pointer">Sign Out</button>
       ` : state.authMode==='verify' ? `
         <div style="text-align:center">
@@ -1823,7 +1852,7 @@ function render(){
         <div style="text-align:center;margin-bottom:24px">
           <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${logoMark(44)}</div>
           <h3 style="font-size:18px;font-weight:700;color:#fff">${state.authMode==='login'?'Welcome back':'Create account'}</h3>
-          <p style="font-size:11.5px;color:rgba(255,255,255,.4);margin-top:4px">${state.authMode==='login'?'Sign in to your QuantCall AI account':'Sign up for free — 3 analyses per day'}</p>
+          <p style="font-size:11.5px;color:rgba(255,255,255,.4);margin-top:4px">${state.authMode==='login'?'Sign in to your QuantCall AI account':'Sign up for free — 2 analyses per day'}</p>
         </div>
         ${state.authError?`<div style="background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:10px;padding:10px 12px;font-size:11.5px;color:#ff4757;margin-bottom:16px">${state.authError}</div>`:''}
         <div style="margin-bottom:14px">
