@@ -18,7 +18,10 @@ const TIER_FABLE_LIMIT = { free: 0, pro: 1, premium: 5 };
 // 650 gives headroom above that overflow while staying tight (raise only if the
 // [Claude][cost] log shows output hitting this ceiling).
 const HAIKU_MAX_TOKENS = 650;       // paid Haiku (proShortPrompt + live context)
-const HAIKU_FREE_MAX_TOKENS = 250;  // free Haiku (shortPrompt — no reasoning field)
+// Free Haiku now also uses proShortPrompt (with a `reasoning` field) so Free users can
+// read Claude's reasoning in the unlocked "individual model analysis" reveal — so it
+// needs the same headroom as paid Haiku, not the old 250 (which had no reasoning field).
+const HAIKU_FREE_MAX_TOKENS = 650;  // free Haiku (proShortPrompt + reasoning)
 // Real Fable 5 usage measured ~392 output tokens (~$0.033/call). 2200 is generous
 // headroom (~5.5x actual) while capping worst-case cost far below the old 8000.
 const FABLE_MAX_TOKENS = 2200;
@@ -949,7 +952,11 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
 
   const proShortPrompt = buildProShortPrompt(ticker);
 
-  const gptClaudePrompt = tier !== 'free' ? proShortPrompt : shortPrompt;
+  // All tiers now use the reasoning-bearing prompt for GPT + Claude so Free users can read
+  // their reasoning in the unlocked "individual model analysis" reveal. This does NOT add
+  // any model calls — Perplexity/Grok remain null-gated for Free in callPerplexity/callGrok,
+  // so a Free analysis still makes exactly 3 model calls (Gemini, GPT-4o, Claude).
+  const gptClaudePrompt = proShortPrompt;
 
   // One shared Brave search per analysis (identical query for all three models),
   // injected into GPT / Claude / Grok. Fetching once keeps us under Brave's Free
@@ -1042,7 +1049,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({
         model: 'gpt-4o-mini',
-        max_tokens: tier !== 'free' ? 450 : 250,
+        max_tokens: 450, // all tiers now use the reasoning-bearing prompt; needs room for reasoning
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, gptClaudePrompt) }
