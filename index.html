@@ -8,7 +8,7 @@
 <meta name="description" content="QuantCall AI runs any stock through five AI models at once and synthesizes one consensus call — bull case, bear case, sentiment, catalysts, and risks in one place.">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
   :root {
     --bg:#0a0f1e; --surface:#141b2d; --surface-2:#0d1426; --surface-3:#0b1224;
     --line:rgba(255,255,255,.07); --brand:#3d85ff; --bull:#00c896; --bear:#ff4757;
@@ -17,7 +17,7 @@
     --radius:16px; --radius-sm:10px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0a0f1e; color: #fff; font-family: 'Inter', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-size: 15px; letter-spacing: -.01em; }
+  body { background-color:#070b16; background-image:radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px); background-size:22px 22px; color: #fff; font-family: 'Space Grotesk', system-ui, sans-serif; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; font-size: 15px; letter-spacing: -.01em; }
   ::selection { background: rgba(61,133,255,.32); color:#fff; }
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
@@ -138,6 +138,80 @@
     .donut-wrap .tnum { font-size: 34px !important; }
     .seg-btn { padding: 6px 9px !important; font-size: 10px !important; }
     .clegend { margin-top: 10px !important; padding-top: 10px !important; }
+  }
+
+  /* ══ Homepage restyle — instrument look (Space Grotesk + JetBrains Mono) ══ */
+  /* Mono for tickers, numbers, counts, small-caps labels */
+  .tnum, .eyebrow, .eyebrow-pill, .stat .v, .stat .l, .cticker, .split-badge, .cvotes, .usage-line { font-family:'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Hero: soft radial green glow behind the hero area only */
+  .hero-landing { position:relative; }
+  .hero-glow { position:absolute; left:50%; top:-30px; transform:translateX(-50%); width:720px; height:460px; max-width:130vw; background:radial-gradient(ellipse at center, rgba(0,200,150,.15), rgba(0,200,150,0) 62%); pointer-events:none; z-index:0; }
+  .hero-landing > * { position:relative; z-index:1; }
+
+  /* Logo with soft green glow */
+  .hero-logo { display:flex; justify-content:center; margin-bottom:20px; }
+  .hero-logo svg { filter:drop-shadow(0 0 20px rgba(0,200,150,.5)); }
+
+  /* Eyebrow pill, outlined green */
+  .eyebrow-pill { display:inline-flex; align-items:center; font-size:10.5px; font-weight:500; letter-spacing:.15em; text-transform:uppercase; color:#00c896; border:1px solid rgba(0,200,150,.45); border-radius:999px; padding:7px 15px; margin-bottom:22px; }
+  .eb-short { display:none; }
+
+  /* Headline + subhead */
+  .hero-h1 { font-weight:700; font-size:52px; line-height:1.0; letter-spacing:-.04em; color:#fff; margin-bottom:18px; }
+  .hero-h1 .accent { color:#00c896; display:block; }
+  .hero-sub { font-size:17px; font-weight:400; color:#8b96ad; max-width:540px; margin:0 auto 26px; line-height:1.5; letter-spacing:-.01em; }
+
+  /* Usage line */
+  .usage-line { display:inline-flex; align-items:center; gap:9px; flex-wrap:wrap; justify-content:center; font-size:12px; color:#5e6a85; margin-top:15px; }
+  .usage-line .u-up { color:#00c896; font-weight:500; cursor:pointer; }
+  .usage-line .dotsep { color:#2b3a5c; }
+
+  /* Example ticker chips */
+  .chip-row { display:flex; gap:9px; justify-content:center; flex-wrap:wrap; margin-top:22px; }
+  .tchip { display:inline-flex; align-items:center; min-height:40px; font-size:13px; font-weight:500; letter-spacing:.02em; color:#8b96ad; background:linear-gradient(180deg,#111a2e,#0d1424); border:1px solid #1c2740; border-top-color:#2b3a5c; border-radius:10px; padding:0 16px; cursor:pointer; transition:color .15s ease, border-color .15s ease, transform .15s ease; }
+  .tchip:hover { color:#fff; border-color:#2b3a5c; transform:translateY(-1px); }
+
+  /* Stat bar, boxed between hairline rules */
+  .statbar { display:grid; grid-template-columns:repeat(4,1fr); border-top:1px solid #1c2740; border-bottom:1px solid #1c2740; max-width:840px; margin:46px auto 0; }
+  .stat { text-align:center; padding:20px 16px; border-left:1px solid #1c2740; }
+  .stat:first-child { border-left:none; }
+  .stat .v { font-size:22px; font-weight:700; color:#fff; letter-spacing:-.02em; }
+  .stat .l { font-size:11.5px; font-weight:400; color:#5e6a85; margin-top:6px; line-height:1.4; }
+
+  /* Recent consensus cards */
+  .recent-label { text-align:center; font-family:'JetBrains Mono',ui-monospace,monospace; font-size:11px; font-weight:500; letter-spacing:.16em; text-transform:uppercase; color:#5e6a85; margin:46px 0 16px; }
+  .cards-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; max-width:900px; margin:0 auto; }
+  .ccard { background:linear-gradient(180deg,#111a2e,#0d1424); border:1px solid #1c2740; border-top-color:#2b3a5c; border-radius:14px; padding:18px 18px 20px; text-align:left; }
+  .ccard-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+  .cticker { font-size:19px; font-weight:700; color:#fff; letter-spacing:-.01em; }
+  .split-badge { font-size:11px; font-weight:500; color:#ff4757; background:rgba(255,71,87,.1); border:1px solid rgba(255,71,87,.28); border-radius:999px; padding:3px 9px; }
+  .cvotes { font-size:11.5px; color:#5e6a85; margin-bottom:13px; }
+  .splitbar { display:flex; gap:4px; margin-bottom:13px; }
+  .seg { height:8px; flex:1; border-radius:3px; }
+  .seg.bull { background:#00c896; box-shadow:0 0 8px rgba(0,200,150,.5); }
+  .seg.bear { background:#ff4757; }
+  .cnote { font-size:12.5px; color:#8b96ad; line-height:1.5; }
+
+  /* Green primary controls (Analyze + Upgrade), no glow */
+  .btn-analyze { background:#00c896; color:#06251c; border:none; font-family:inherit; min-height:44px; transition:filter .15s ease, transform .15s ease; }
+  .btn-analyze:hover { filter:brightness(1.06); transform:translateY(-1px); }
+  .btn-upgrade { background:#00c896; color:#06251c; border:none; font-family:inherit; white-space:nowrap; transition:filter .15s ease, transform .15s ease; }
+  .btn-upgrade:hover { filter:brightness(1.06); transform:translateY(-1px); }
+
+  /* Responsive — mobile pass (test at 390px) */
+  @media (max-width:600px) {
+    .hero-h1 { font-size:32px !important; }
+    .hero-sub { font-size:15px; }
+    .statbar { grid-template-columns:1fr 1fr; }
+    .stat:nth-child(3) { border-left:none; }
+    .stat:nth-child(n+3) { border-top:1px solid #1c2740; }
+    .cards-grid { grid-template-columns:1fr; }
+  }
+  @media (max-width:440px) {
+    .hero-h1 { font-size:31px !important; }
+    .eb-full { display:none; }
+    .eb-short { display:inline; }
   }
 </style>
 </head>
@@ -391,7 +465,8 @@ async function initAuth() {
   const { data: { session } } = await sbClient.auth.getSession();
   currentUser = session?.user ?? null;
   await loadSavedAnalyses();
-  if (currentUser) await refreshProStatus();
+  await loadPromotedConsensus();
+  if (currentUser) { await refreshProStatus(); await loadAdminFlag(); }
   render();
   // Deep-link from pricing.html: ?checkout=pro|premium initiates the same Stripe
   // checkout flow as the in-app buttons (prompts sign-in first if needed).
@@ -408,8 +483,10 @@ async function initAuth() {
     await loadSavedAnalyses();
     if (currentUser) {
       await refreshProStatus();
+      await loadAdminFlag();
     } else {
       state.tier = 'free';
+      state.isAdmin = false;
     }
     render();
   });
@@ -660,7 +737,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#e3b341":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false,promotedConsensus:[],isAdmin:false,promoteEditing:null,promoteNote:'',promoteBusy:false};
 
 function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
 function isPremium(){ return state.tier === 'premium'; }
@@ -901,6 +978,118 @@ function fablePromoBanner(){
 }
 
 function featLine(text, cColor, tColor){ return `<div style="display:flex;align-items:flex-start;gap:7px"><span style="color:${cColor};font-size:11.5px;margin-top:1px;flex-shrink:0">✓</span><span style="font-size:11.5px;color:${tColor};line-height:1.45">${text}</span></div>`; }
+
+// ── Recent consensus (homepage cards) — sourced live from the promoted_analyses table.
+// Public read, so the same three cards show for every visitor (logged in or out). There is
+// NO placeholder / fallback data: if the table is empty the section is hidden entirely.
+function escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// Fixed model order for the five verdict segments (matches promoted_analyses.verdicts).
+const PROMOTE_MODEL_ORDER = ['GPT-4o','Gemini','Claude','Perplexity','Grok'];
+
+// Read up to three promoted analyses, newest first. Same content for everyone.
+async function loadPromotedConsensus(){
+  try {
+    const { data, error } = await sbClient.from('promoted_analyses')
+      .select('id,ticker,votes,verdicts,note,created_at')
+      .order('created_at', { ascending:false }).limit(3);
+    if (error) { console.warn('[promoted] read failed:', error.message); state.promotedConsensus = []; return; }
+    state.promotedConsensus = Array.isArray(data) ? data : [];
+  } catch (e) { console.warn('[promoted] read error:', e); state.promotedConsensus = []; }
+}
+
+// Read the signed-in user's is_admin flag from their OWN profile row (never hardcoded).
+async function loadAdminFlag(){
+  if (!currentUser) { state.isAdmin = false; return; }
+  try {
+    const { data, error } = await sbClient.from('profiles').select('is_admin').eq('id', currentUser.id).single();
+    state.isAdmin = (!error && !!(data && data.is_admin));
+  } catch (e) { state.isAdmin = false; }
+}
+
+// Renders the recent-consensus cards from state.promotedConsensus. Bar segments follow the
+// stored verdicts (fixed model order); vote count + badge derive from them. No dates shown.
+function recentConsensusCards(){
+  return state.promotedConsensus.map(r=>{
+    const verdicts = Array.isArray(r.verdicts) ? r.verdicts : [];
+    const bull = verdicts.filter(v=>v==='bull').length;
+    const bear = verdicts.filter(v=>v==='bear').length;
+    const segs = verdicts.map(v=>`<span class="seg ${v==='bull'?'bull':'bear'}"></span>`).join('');
+    return `<div class="ccard">
+      <div class="ccard-top"><span class="cticker tnum">${escHtml(r.ticker)}</span><span class="split-badge tnum">${bull}–${bear}</span></div>
+      <div class="cvotes tnum">${bull} bull · ${bear} bear</div>
+      <div class="splitbar">${segs}</div>
+      <div class="cnote">${escHtml(r.note)}</div>
+    </div>`;
+  }).join('');
+}
+
+// ── Admin promote / un-promote (writes gated by RLS: profiles.is_admin) ──
+function isPromoted(ticker){ return state.promotedConsensus.some(p=>p.ticker===ticker); }
+
+// Step 1 — open the note editor. Blocks up front if three are already promoted.
+function startPromote(ticker){
+  if (!state.isAdmin) return;
+  if (state.promotedConsensus.length >= 3) {
+    showCopyToast('Three analyses are already promoted. Un-promote one first.');
+    return;
+  }
+  state.promoteEditing = ticker;
+  state.promoteNote = '';
+  render();
+}
+function cancelPromote(){ state.promoteEditing = null; state.promoteNote = ''; render(); }
+
+// Step 2 — write the row. Derives verdicts from the saved analysis; note is admin-authored.
+// Surfaces the real DB/RLS error instead of failing silently or faking success.
+async function confirmPromote(ticker){
+  if (state.promoteBusy) return;
+  const note = (state.promoteNote || '').trim();
+  if (!note) { showCopyToast('Add a note describing what the models split on.'); return; }
+  if (state.promotedConsensus.length >= 3) { showCopyToast('Three analyses are already promoted. Un-promote one first.'); return; }
+  const saved = state.savedAnalyses.find(s=>s.ticker===ticker);
+  const ai = saved && saved.analysis_data;
+  const models = (ai && ai.models) || [];
+  const verdicts = PROMOTE_MODEL_ORDER.map(name=>{
+    const m = models.find(x=>x.model===name && !x.error);
+    return m ? (m.bullScore>=50?'bull':'bear') : null;
+  });
+  if (verdicts.some(v=>v===null)) { showCopyToast('This analysis is missing one of the five models — it can’t be promoted.'); return; }
+  const bull = verdicts.filter(v=>v==='bull').length;
+  const bear = verdicts.filter(v=>v==='bear').length;
+  state.promoteBusy = true; render();
+  try {
+    const { error } = await sbClient.from('promoted_analyses').insert({ ticker, votes:`${bull}-${bear}`, verdicts, note });
+    if (error) { showCopyToast('Could not promote: ' + error.message); return; }
+    await loadPromotedConsensus();
+    state.promoteEditing = null; state.promoteNote = '';
+    showCopyToast(`${ticker} promoted to the homepage.`);
+  } catch (e) {
+    console.warn('[promote] error', e);
+    showCopyToast('Could not promote right now. Please try again.');
+  } finally {
+    state.promoteBusy = false; render();
+  }
+}
+
+// Un-promote — delete the promoted row for this ticker.
+async function unpromote(ticker){
+  if (state.promoteBusy) return;
+  const row = state.promotedConsensus.find(p=>p.ticker===ticker);
+  if (!row) return;
+  state.promoteBusy = true; render();
+  try {
+    const { error } = await sbClient.from('promoted_analyses').delete().eq('id', row.id);
+    if (error) { showCopyToast('Could not un-promote: ' + error.message); return; }
+    await loadPromotedConsensus();
+    showCopyToast(`${ticker} removed from the homepage.`);
+  } catch (e) {
+    console.warn('[unpromote] error', e);
+    showCopyToast('Could not un-promote right now. Please try again.');
+  } finally {
+    state.promoteBusy = false; render();
+  }
+}
 
 // QuantCall AI brand mark — five model dots (Gemini/Claude/GPT-4o/Perplexity/Grok) crowning
 // a gold-irised eye atop five converging rays. Single source of truth for the nav, footer,
@@ -1145,8 +1334,8 @@ function render(){
   const adjBadge = consensus.adj > 0 ? `<span style="color:#00c896;font-size:10px;font-weight:700">▲ +${consensus.adj} pts</span>` : consensus.adj < 0 ? `<span style="color:#ff4757;font-size:10px;font-weight:700">▼ ${consensus.adj} pts</span>` : `<span style="color:#94a3b8;font-size:10px;font-weight:700">— no adjustment</span>`;
 
   document.getElementById('app').innerHTML = `
-  <div style="min-height:100vh;background:#0a0f1e">
-    <nav style="position:sticky;top:0;z-index:50;background:rgba(10,15,30,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.07);height:56px">
+  <div style="min-height:100vh;background:transparent">
+    <nav style="position:sticky;top:0;z-index:50;background:rgba(7,11,22,.85);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid #1c2740;height:56px">
       <div style="max-width:900px;margin:0 auto;padding:0 16px;height:100%;display:flex;align-items:center;justify-content:space-between">
         <a href="index.html" style="display:flex;align-items:center;gap:10px;cursor:pointer;text-decoration:none" onclick="state.ticker='';state.searchInput='';render();return false">
           <div style="width:34px;height:34px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${logoMark(34)}</div>
@@ -1158,53 +1347,50 @@ function render(){
             ${state.savedAnalyses.length > 0 ? `<span style="position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#4a90ff,#2f6fe0);color:#fff;font-size:9px;font-weight:700;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(61,133,255,.5)">${state.savedAnalyses.length}</span>` : ''}
           </button>
           ${state.tier==='free'
-            ? `<button onclick="showPricingModal()" class="btn-gold" style="padding:8px 15px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Upgrade</button>`
+            ? `<button onclick="showPricingModal()" class="btn-upgrade" style="padding:8px 15px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Upgrade</button>`
             : state.tier==='pro'
               ? `<a href="pricing.html" style="padding:8px 15px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(122,90,248,.35);text-decoration:none;display:inline-flex;align-items:center">Upgrade</a>`
               : ''}
           ${currentUser
             ? `<button onclick="state.authModal=true;render()" class="btn-primary" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);border:1px solid rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 12px rgba(61,133,255,.35)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/></svg></button>`
-            : `<button onclick="state.authModal=true;state.authMode='login';render()" class="nav-btn" style="padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer">Sign In</button>`
+            : `<button onclick="state.authModal=true;state.authMode='login';render()" class="nav-btn" style="padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer">Sign in</button>`
           }
         </div>
       </div>
     </nav>
 
     <main style="max-width:900px;margin:0 auto;padding:24px 16px">
-      <div class="fade-in" style="text-align:center;margin-bottom:24px">
-        <div style="display:inline-flex;align-items:center;gap:8px;padding:5px 14px;border-radius:999px;background:linear-gradient(180deg,rgba(61,133,255,.16),rgba(61,133,255,.06));border:1px solid rgba(61,133,255,.28);margin-bottom:18px;box-shadow:0 2px 12px rgba(61,133,255,.12)">
-          <div class="pulse-dot" style="width:6px;height:6px;border-radius:50%;background:#00c896;box-shadow:0 0 8px #00c896"></div>
-          <span style="font-size:10px;color:#7eb0ff;font-weight:700;letter-spacing:0.14em">MULTI-AI CONSENSUS ENGINE</span>
-        </div>
-        <h1 style="font-size:46px;font-weight:900;color:#fff;line-height:1.05;letter-spacing:-.03em;margin-bottom:12px">Quant<span style="background:linear-gradient(135deg,#5a9bff,#3d85ff);-webkit-background-clip:text;background-clip:text;color:#3d85ff;-webkit-text-fill-color:transparent">Call</span> AI</h1>
-        <p style="font-size:15px;font-weight:600;color:rgba(255,255,255,.72);letter-spacing:.01em;margin-bottom:22px">5 AI quants. One call.</p>
-        <div class="search-box" style="display:flex;align-items:center;background:linear-gradient(180deg,#161e33,#121a2c);border:1px solid rgba(255,255,255,.12);border-radius:14px;overflow:hidden;max-width:520px;margin:0 auto;box-shadow:0 10px 30px -10px rgba(0,0,0,.6)">
+      <div class="fade-in hero-landing" style="text-align:center;margin-bottom:24px">
+        ${!state.ticker ? `<div class="hero-glow"></div>
+        <div class="hero-logo">${logoMark(52)}</div>
+        <span class="eyebrow-pill"><span class="eb-full">The only AI screener running all five at once</span><span class="eb-short">Only AI screener running all five</span></span>
+        <h1 class="hero-h1">Five models. One verdict.<span class="accent">Smarter stock screening.</span></h1>
+        <p class="hero-sub">One model has blind spots. Five don't. See exactly where they agree, and where they split.</p>` : ''}
+        <div class="search-box" style="display:flex;align-items:center;background:linear-gradient(180deg,#111a2e,#0d1424);border:1px solid #1c2740;border-top-color:#2b3a5c;border-radius:14px;overflow:hidden;max-width:520px;margin:0 auto;box-shadow:0 10px 30px -10px rgba(0,0,0,.6)">
           <span style="padding:0 6px 0 16px;display:flex;align-items:center;color:rgba(255,255,255,.4)"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span>
           <input id="searchBox" value="${state.searchInput}" placeholder="Enter ticker: AAPL, TSLA, NVDA..."
             style="flex:1;background:transparent;padding:15px 10px;font-size:15px;font-weight:600;color:#fff;border:none;outline:none;text-transform:uppercase;letter-spacing:.01em" maxlength="8"
             oninput="state.searchInput=this.value.toUpperCase();this.value=this.value.toUpperCase()"
             onkeydown="if(event.key==='Enter'){analyzeStock()}"/>
-          <button onclick="analyzeStock()" class="btn-primary" style="margin:7px;padding:11px 20px;border-radius:10px;font-size:13px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze</button>
+          <button onclick="analyzeStock()" class="btn-analyze" style="margin:7px;padding:11px 22px;border-radius:10px;font-size:13px;font-weight:700">Analyze</button>
         </div>
-        <p style="font-size:13px;color:rgba(255,255,255,.4);margin-top:16px">Multi-AI consensus analysis for smarter investing</p>
         ${(()=>{
-          // Free-tier usage counter: its own quiet pill instead of a 4-color sentence.
-          // Amber dot = uses left (data state), red = none; upgrade link stays quiet blue
-          // so the gold Fable banner below remains the one premium CTA in the hero.
+          // Usage line — keeps the live free-tier counter, formatted as the locked copy
+          // "<count> · Upgrade · No credit card". Paid users see no line.
           if (isPaid()) return '';
           const rem = state.usageRemaining;
-          const zero = rem === 0;
-          const dot = zero ? '#ff4757' : '#e3b341';
           const txt = rem === null ? '2 free analyses per day'
-            : zero ? 'No free analyses left today'
+            : rem === 0 ? 'No free analyses left today'
             : `${rem} ${rem === 1 ? 'analysis' : 'analyses'} left today`;
-          const resets = rem === null ? '' : `<span style="color:rgba(255,255,255,.25);font-size:10px">· resets 12 AM UTC</span>`;
-          return `<div style="display:inline-flex;align-items:center;gap:11px;margin-top:11px;padding:6px 14px;border-radius:999px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08)">
-            <span style="display:inline-flex;align-items:center;gap:7px;font-size:11.5px;color:rgba(255,255,255,.55)"><span style="width:6px;height:6px;border-radius:50%;background:${dot};box-shadow:0 0 6px ${dot}"></span>${txt} ${resets}</span>
-            <span style="width:1px;height:12px;background:rgba(255,255,255,.12)"></span>
-            <span role="button" tabindex="0" onclick="showPricingModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPricingModal()}" style="font-size:11.5px;font-weight:700;color:#5a9bff;cursor:pointer">Upgrade</span>
+          return `<div class="usage-line">
+            <span>${txt}</span><span class="dotsep">·</span>
+            <span class="u-up" role="button" tabindex="0" onclick="showPricingModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPricingModal()}">Upgrade</span>
+            <span class="dotsep">·</span><span>No credit card</span>
           </div>`;
         })()}
+        ${!state.ticker ? `<div class="chip-row">
+          ${['NVDA','AAPL','TSLA','MSFT','AMZN'].map(t=>`<button onclick="state.searchInput='${t}';analyzeStock()" class="tchip tnum">${t}</button>`).join('')}
+        </div>` : ''}
         ${state.usageError ? `
           <div style="max-width:500px;margin:14px auto 0;background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:10px;padding:14px 16px;text-align:center">
             <p style="font-size:11.5px;color:#ff4757;line-height:1.6;margin-bottom:10px">${state.usageError}</p>
@@ -1213,7 +1399,17 @@ function render(){
         ` : ''}
       </div>
 
-      ${fablePromoBanner()}
+      ${!state.ticker ? `
+      <div class="statbar">
+        <div class="stat"><div class="v">5</div><div class="l">Models per analysis</div></div>
+        <div class="stat"><div class="v">Live</div><div class="l">Web search, not training data</div></div>
+        <div class="stat"><div class="v">Any</div><div class="l">US-listed ticker</div></div>
+        <div class="stat"><div class="v">&lt;30s</div><div class="l">To a full consensus</div></div>
+      </div>
+      ${state.promotedConsensus.length ? `<div class="recent-label">Recent consensus</div>
+      <div class="cards-grid">${recentConsensusCards()}</div>` : ''}
+      <div style="margin-top:32px">${fablePromoBanner()}</div>
+      ` : ''}
 
       ${state.ticker ? `<div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
         <span class="tnum" style="font-size:27px;font-weight:900;color:#fff;letter-spacing:-.01em">${d.ticker}</span>
@@ -1717,17 +1913,9 @@ function render(){
       </div>
 
       </div>
-      ${!state.ticker ? `<div style="text-align:center;padding:48px 16px 56px">
-        <div style="width:56px;height:56px;border-radius:16px;background:rgba(61,133,255,.1);border:1px solid rgba(61,133,255,.18);display:flex;align-items:center;justify-content:center;margin:0 auto 18px"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#5a9bff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 14 4-4 3 3 5-6"/></svg></div>
-        <p style="font-size:15px;color:rgba(255,255,255,.5);font-weight:500;margin-bottom:26px">Enter a ticker above and click <strong style="color:#5a9bff;font-weight:700">Analyze</strong> to get started.</p>
-        <p class="eyebrow" style="margin-bottom:12px">Or try one</p>
-        <div style="display:flex;gap:9px;justify-content:center;flex-wrap:wrap">
-          ${['NVDA','AAPL','TSLA','MSFT','AMZN'].map(t=>`<button onclick="state.searchInput='${t}';analyzeStock()" class="nav-btn tnum" style="padding:9px 18px;border-radius:999px;font-size:13px;font-weight:800;letter-spacing:.02em;color:rgba(255,255,255,.75);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);cursor:pointer">${t}</button>`).join('')}
-        </div>
-      </div>` : ''}
     </main>
 
-    <footer style="border-top:1px solid rgba(255,255,255,.05);background:#0a0f1e;padding:24px 16px">
+    <footer style="border-top:1px solid #1c2740;background:#070b16;padding:24px 16px">
       <div style="max-width:900px;margin:0 auto;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:center">
         <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;display:flex;align-items:center;justify-content:center;flex-shrink:0">${logoMark(30)}</div><span style="font-weight:800;color:#fff;font-size:15px;letter-spacing:-.02em">QuantCall <span style="color:#5a9bff">AI</span></span></div>
         <div style="display:flex;gap:18px;flex-wrap:wrap">
@@ -1767,12 +1955,28 @@ function render(){
               <p style="font-size:13px;color:rgba(255,255,255,.45);line-height:1.6">Run an analysis and tap <strong style="color:#fff;font-weight:700">Save to Watchlist</strong> to keep it here.</p>
             </div>
           ` : state.savedAnalyses.map(s => `
-            <div class="wl-item" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border-radius:11px;background:rgba(255,255,255,.03);margin-bottom:8px;border:1px solid rgba(255,255,255,.06)">
-              <button onclick="openSavedAnalysis('${s.ticker}')" style="background:transparent;border:none;cursor:pointer;text-align:left;flex:1;min-width:0">
-                <div class="tnum" style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.01em">${s.ticker}</div>
-                <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">Last analyzed: ${fmtSavedDate(s.updated_at || s.created_at)}</div>
-              </button>
-              <button onclick="deleteSavedAnalysis('${s.ticker}')" title="Remove from watchlist" style="background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,.35);padding:6px;border-radius:10px;line-height:0;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
+            <div class="wl-item" style="padding:11px 13px;border-radius:11px;background:rgba(255,255,255,.03);margin-bottom:8px;border:1px solid rgba(255,255,255,.06)">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                <button onclick="openSavedAnalysis('${s.ticker}')" style="background:transparent;border:none;cursor:pointer;text-align:left;flex:1;min-width:0">
+                  <div class="tnum" style="font-size:15px;font-weight:800;color:#fff;letter-spacing:-.01em">${s.ticker}</div>
+                  <div style="font-size:10px;color:rgba(255,255,255,.4);margin-top:2px">Last analyzed: ${fmtSavedDate(s.updated_at || s.created_at)}</div>
+                </button>
+                <div style="display:flex;align-items:center;gap:2px;flex-shrink:0">
+                  ${state.isAdmin ? (isPromoted(s.ticker)
+                    ? `<button onclick="unpromote('${s.ticker}')" title="Promoted — click to un-promote" style="background:transparent;border:none;cursor:pointer;color:#00c896;font-size:16px;padding:4px 6px;line-height:1;flex-shrink:0">★</button>`
+                    : `<button onclick="startPromote('${s.ticker}')" title="Promote to homepage" style="background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,.4);font-size:16px;padding:4px 6px;line-height:1;flex-shrink:0">☆</button>`) : ''}
+                  <button onclick="deleteSavedAnalysis('${s.ticker}')" title="Remove from watchlist" style="background:transparent;border:none;cursor:pointer;color:rgba(255,255,255,.35);padding:6px;border-radius:10px;line-height:0;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6M14 11v6"/></svg></button>
+                </div>
+              </div>
+              ${state.isAdmin && state.promoteEditing===s.ticker ? `
+                <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06)">
+                  <input id="promote-note" value="${escHtml(state.promoteNote)}" maxlength="200" placeholder="What did the models split on?" oninput="state.promoteNote=this.value" style="width:100%;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 10px;font-size:12px;color:#fff;outline:none;font-family:inherit" />
+                  <div style="display:flex;gap:7px;margin-top:8px">
+                    <button onclick="confirmPromote('${s.ticker}')" ${state.promoteBusy?'disabled':''} style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;background:#00c896;color:#06251c;border:none;cursor:${state.promoteBusy?'default':'pointer'}">${state.promoteBusy?'Promoting…':'Promote'}</button>
+                    <button onclick="cancelPromote()" style="padding:8px 12px;border-radius:8px;font-size:12px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.12);cursor:pointer">Cancel</button>
+                  </div>
+                </div>
+              ` : ''}
             </div>
           `).join('')}
         `}
