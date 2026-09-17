@@ -147,10 +147,10 @@
   /* Hero: soft radial green glow behind the hero area only */
   .hero-landing { position:relative; }
   .hero-glow { position:absolute; left:50%; top:-30px; transform:translateX(-50%); width:720px; height:460px; max-width:130vw; background:radial-gradient(ellipse at center, rgba(0,200,150,.15), rgba(0,200,150,0) 62%); pointer-events:none; z-index:0; }
-  .hero-landing > * { position:relative; z-index:1; }
+  .hero-landing > *:not(.hero-glow) { position:relative; z-index:1; }
 
   /* Logo with soft green glow */
-  .hero-logo { display:flex; justify-content:center; margin-bottom:20px; }
+  .hero-logo { display:flex; justify-content:center; margin-top:24px; margin-bottom:20px; }
   .hero-logo svg { filter:drop-shadow(0 0 20px rgba(0,200,150,.5)); }
 
   /* Eyebrow pill, outlined green */
