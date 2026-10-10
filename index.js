@@ -11,6 +11,17 @@ const TIER_ANALYSIS_LIMIT = { free: 2, pro: 10, premium: 20 };
 const TIER_XSENT_LIMIT = { free: 0, pro: 2, premium: 4 };
 const TIER_SAVED_LIMIT = { free: 2, pro: 10, premium: Infinity };
 const TIER_FABLE_LIMIT = { free: 0, pro: 1, premium: 5 };
+// Daily per-model retry budget (/api/retry-model) — tracked separately from the analysis
+// cap in the usage table under a `retry:` prefix, so retries can't be used to bypass the
+// analysis cap and can't run unbounded API cost.
+const TIER_RETRY_LIMIT = { free: 5, pro: 15, premium: 25 };
+// Actual OpenAI model id for the GPT consensus slot. Single source of truth: used for the
+// API call AND returned to the frontend (as `apiModel`) so the GPT chip's hover shows the
+// real model. Swap this one string on a future upgrade and the hover updates automatically.
+const GPT_API_MODEL = 'gpt-5.6-luna'; // replaces gpt-5-mini (shuts down Dec 11, 2026)
+// Actual xAI model id for the Grok consensus slot — same single-source pattern as GPT:
+// used for the API call and returned to the frontend as `apiModel` for the chip hover.
+const GROK_API_MODEL = 'grok-4.3';
 
 // ── Per-model output token budgets (tune here; every token is billed) ──────────
 // Paid Claude uses buildProShortPrompt (has a `reasoning` field) + Brave live context,
@@ -699,7 +710,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROK_API_KEY}` },
     body: JSON.stringify({
-      model: 'grok-4-1-fast-non-reasoning',
+      model: GROK_API_MODEL,
       input: [{ role: 'user', content: xSentimentPrompt }],
       tools: [{ type: 'x_search' }],
       max_turns: 1
@@ -760,6 +771,196 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   "reasoning": <3-4 sentences explaining what you weighted most and why you landed where you did. Write for a smart retail investor with no finance jargon — explain any technical term in plain words the moment you use it. Be specific to this stock right now, not generic boilerplate.>
 }`;
 }
+
+// Gemini's detailed (search-grounded) prompt — the primary source of the top-level
+// fields (price, company, news, catalysts). Hoisted so /api/analyze and the single-model
+// retry path (runModelStandalone) share the exact same prompt.
+function buildGeminiPrompt(ticker) {
+  return `Search the web for the latest information on ${ticker} and analyze it as a stock investment. Find the most current live market data available.
+
+Respond ONLY with a valid JSON object — no markdown, no explanation, no backticks. Use exactly these fields:
+{
+  "companyName": <full company name e.g. "Apple Inc.">,
+  "currentPrice": <current stock price as a number>,
+  "peRatio": <trailing P/E ratio as a number, or null if not available>,
+  "marketCap": <market cap as a formatted string e.g. "$3.2T" or "$450B">,
+  "week52Low": <52-week low price as a number>,
+  "week52High": <52-week high price as a number>,
+  "bullScore": <number 0-100, your honest bull conviction>,
+  "bearScore": <number 0-100, your honest bear conviction>,
+  "verdict": <one of: "Strong Buy", "Bullish", "Lean Buy", "Neutral", "Lean Sell", "Bearish", "Strong Sell">,
+  "bullCase": <2-3 specific sentences on the strongest bull argument RIGHT NOW>,
+  "bearCase": <2-3 specific sentences on the most serious bear risk RIGHT NOW>,
+  "topCatalyst": <single most important upcoming catalyst>,
+  "topRisk": <single most important near-term risk>,
+  "confidence": <number 0-100, how confident you are in this analysis>,
+  "sector": <the stock's sector e.g. "Technology", "Healthcare", "Energy">,
+  "industry": <the specific industry e.g. "Semiconductors", "Drug Manufacturers", "Consumer Electronics">,
+  "description": <2 sentence company description — what they do and why they matter>,
+  "riskProfile": <number 1-10, where 1=very stable blue chip, 10=highly speculative>,
+  "bullCatalysts": <array of 3-4 objects with fields: text (string, the catalyst itself, 1 sentence), date (string like "Jul 2026"), status ("upcoming" if future, "prior" if already happened), detail (string, 2-3 sentences elaborating on THIS SPECIFIC catalyst only — why it matters and what would need to happen for it to play out, plain language, explain any technical term the moment you use it)>,
+  "bearRisks": <array of 3-4 objects with fields: text (string, the risk itself, 1 sentence), detail (string, 2-3 sentences elaborating on THIS SPECIFIC risk only — why it matters and what could trigger it, plain language, explain any technical term the moment you use it)>,
+  "news": <array of 3-4 objects — ONLY from last 60 days. Fields: title (string), date (string like "Jun 2026"), tag (one of EARNINGS/NEWS/EVENT/DIVIDEND), detail (string, 2-3 sentences elaborating on THIS SPECIFIC news item only — what happened, why it matters to investors, plain language, explain any technical term the moment you use it)>,
+  "bullScore1W": <number 0-100, bull conviction for next 7 days ONLY. Weight heavily: recent price momentum (has it run hard already?), this week's macro events, market sentiment right now, short-term overbought/oversold conditions. Be skeptical of stocks up 15%+ in the last 30 days>,
+  "bullScore1M": <number 0-100, bull conviction for next 30 days. Weight: upcoming earnings, sector rotation, news cycle, medium-term trend, whether recent price move is sustainable>,
+  "bullScore1Y": <number 0-100, bull conviction for next 12 months. Weight: fundamentals, competitive moat, macro tailwinds, long-term valuation vs growth potential>,
+  "earningsDate": <next scheduled earnings date as a string e.g. "Jul 24, 2026", or "Unknown">,
+  "analystPriceTarget": <average Wall Street analyst price target as a number, or null>,
+  "dividendYield": <dividend yield as a string e.g. "1.8%" or "None">,
+  "analystBuy": <percentage of analysts with Buy rating, 0-100>,
+  "analystHold": <percentage of analysts with Hold rating, 0-100>,
+  "analystSell": <percentage of analysts with Sell rating, 0-100>,
+  "stockSentimentScore": <number 0-100 where 0=extremely oversold, 50=neutral, 100=extremely overbought. Evaluate THIS SPECIFIC STOCK independently — based on its own RSI, price vs its 50/200-day moving averages, and recent price momentum. Do NOT anchor to the sector score. A stock can be oversold in a hot sector or overbought in a cold one — reflect that reality>,
+  "sectorSentimentScore": <number 0-100, same scale but evaluate the BROADER SECTOR independently — based on sector ETF momentum, recent sector-wide fund flows, and macro tailwinds/headwinds. Reflect the sector as a whole, not this individual stock. These two scores should often differ significantly>,
+  "entrySignal": <one of: "Strong Entry", "Good Entry", "Decent Entry", "Wait", "Avoid" — be critical and honest. Consider: has the stock run hard recently? Is the sector overbought? Are there near-term macro risks? Default toward "Wait" if the stock is up 15%+ in the last 30 days without a clear near-term catalyst. "Strong Entry" should be rare>,
+  "sentimentAnalysis": <2-3 sentences explaining the stock and sector sentiment positions and what they mean for entry timing>,
+  "reasoning": <2-3 sentences on what YOU weighted most in your analysis and why you landed at your verdict — be specific to this stock right now, not generic>
+}`;
+}
+
+// ── Run ONE model standalone (used by the retry endpoint) ───────────────────
+// Mirrors the per-model logic inside /api/analyze as a reusable function so a single
+// failed model can be re-run without re-calling the other four. Returns the parsed
+// result, or throws on failure (so the caller can retry / surface a clean error).
+async function runModelStandalone(modelName, ticker, tier, searchBlock, livePrice) {
+  const sys = SYSTEM_PROMPT;
+  const pc = priceContext(ticker, livePrice);
+  const proShort = buildProShortPrompt(ticker);
+
+  if (modelName === 'Gemini') {
+    const geminiPrompt = buildGeminiPrompt(ticker);
+    const geminiRequest = async (gm) => {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent?key=${process.env.GEMINI_API_KEY}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+          systemInstruction: { parts: [{ text: sys }] },
+          contents: [{ parts: [{ text: pc + geminiPrompt }] }],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 16384 },
+          tools: [{ google_search: {} }]
+        }) }
+      );
+      return await res.json();
+    };
+    let data = await geminiRequest('gemini-3.1-flash-lite');
+    if (data.error) {
+      if (typeof data.error.message === 'string' && data.error.message.toLowerCase().includes('high demand')) {
+        data = await geminiRequest('gemini-3-flash-preview');
+        if (data.error) throw new Error(data.error.message);
+      } else throw new Error(data.error.message);
+    }
+    const text = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('') || '';
+    if (!text) throw new Error('Gemini search grounding returned no content');
+    const stripped = text.replace(/<tool_code>[\s\S]*?<\/tool_code>/g, '').replace(/```json|```/g, '').trim();
+    return { ...JSON.parse(extractJSON(stripped)), model: 'Gemini' };
+  }
+
+  if (modelName === 'GPT-4o') {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
+      body: JSON.stringify({ model: GPT_API_MODEL, reasoning_effort: 'low', max_completion_tokens: 2500, messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: pc + withLiveSearch(ticker, searchBlock, proShort) }
+      ] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.choices?.[0]?.message?.content || '';
+    return { ...JSON.parse(extractJSON(text.replace(/```json|```/g, '').trim())), model: 'GPT-4o', apiModel: GPT_API_MODEL };
+  }
+
+  if (modelName === 'Claude') {
+    // Retry the default consensus Claude (Haiku). The Fable swap has its own path.
+    const result = await callAnthropicMessages('claude-haiku-4-5-20251001', sys,
+      pc + withLiveSearch(ticker, searchBlock, proShort), tier);
+    return { ...result, model: 'Claude' };
+  }
+
+  if (modelName === 'Perplexity') {
+    const res = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
+      body: JSON.stringify({ model: 'sonar', max_tokens: 450, messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: pc + proShort }
+      ] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.choices?.[0]?.message?.content || '';
+    return { ...JSON.parse(extractJSON(text.replace(/```json|```/g, '').trim())), model: 'Perplexity' };
+  }
+
+  if (modelName === 'Grok') {
+    const res = await fetch('https://api.x.ai/v1/chat/completions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROK_API_KEY}` },
+      body: JSON.stringify({ model: GROK_API_MODEL, reasoning_effort: 'low', max_tokens: 1500, messages: [
+        { role: 'system', content: sys },
+        { role: 'user', content: pc + withLiveSearch(ticker, searchBlock, proShort) }
+      ] })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const text = data.choices?.[0]?.message?.content || '';
+    return { ...JSON.parse(extractJSON(text.replace(/```json|```/g, '').trim())), model: 'Grok', apiModel: GROK_API_MODEL };
+  }
+
+  throw new Error(`unknown model: ${modelName}`);
+}
+
+// ── POST /api/retry-model — automatic, capped per-model retry ───────────────
+// A single model that failed in /api/analyze is re-run here (not the other four).
+// Up to 2 automatic attempts, 2s then 5s apart — bounded, never loops. Returns
+// { ok:true, result } on success, or { ok:false, error } once retries are exhausted
+// so the frontend can show a clear failed state (never an infinite spinner).
+const RETRY_DELAYS_MS = [2000, 5000];
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const RETRYABLE_MODELS = ['Gemini', 'GPT-4o', 'Claude', 'Perplexity', 'Grok'];
+const PAID_ONLY_MODELS = ['Perplexity', 'Grok'];
+
+app.post('/api/retry-model', async (req, res) => {
+  const { ticker, model } = req.body || {};
+  if (!ticker) return res.status(400).json({ error: 'ticker required' });
+  if (!RETRYABLE_MODELS.includes(model)) return res.status(400).json({ error: 'unsupported_model' });
+  const tier = await getUserTier(req.headers['authorization']);
+  // Paid-only models are never run for Free (so never "failed" there) — don't retry them.
+  if (PAID_ONLY_MODELS.includes(model) && tier === 'free') {
+    return res.status(403).json({ error: 'tier_locked', model, tier });
+  }
+  // ── Daily retry budget (separate from the analysis cap) ──────────────────
+  // One unit per retry request (each runs up to 2 attempts). Bounds cost/abuse without
+  // consuming the user's daily analyses. Not charged on the 400/403 rejections above.
+  const userId = await getUserId(req.headers['authorization']);
+  const retryLimit = TIER_RETRY_LIMIT[tier] ?? TIER_RETRY_LIMIT.free;
+  const retryUsage = await checkAndIncrementUsage(`retry:${getRequestIdentifier(req, userId)}`, retryLimit);
+  if (!retryUsage.allowed) {
+    return res.status(429).json({
+      error: 'retry_limit_reached',
+      model,
+      message: `You've reached your daily retry limit (${retryLimit}) on the ${tier} plan. Try again tomorrow.`,
+      tier
+    });
+  }
+  const T = String(ticker).toUpperCase();
+  // Fresh live context for the retry (best-effort, same as the Claude-swap refresh).
+  let searchBlock = '';
+  try { searchBlock = await braveSearch(`${T} stock news today`); } catch (e) { console.warn(`[retry-model] Brave failed for ${T}: ${e.message}`); }
+  let livePrice = null;
+  try { livePrice = await fetchLivePrice(T); } catch (e) { console.warn(`[retry-model] price failed for ${T}: ${e.message}`); }
+
+  let lastErr = null;
+  for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt++) {
+    await sleep(RETRY_DELAYS_MS[attempt]);
+    try {
+      const result = await runModelStandalone(model, T, tier, searchBlock, livePrice);
+      console.log(`[retry-model] ${model} ${T} succeeded on retry ${attempt + 1}/${RETRY_DELAYS_MS.length}`);
+      return res.json({ ok: true, model, result });
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[retry-model] ${model} ${T} retry ${attempt + 1}/${RETRY_DELAYS_MS.length} failed: ${e.message}`);
+    }
+  }
+  console.error(`[retry-model] ${model} ${T} exhausted ${RETRY_DELAYS_MS.length} retries: ${lastErr?.message}`);
+  return res.json({ ok: false, model, error: lastErr?.message || 'model did not respond' });
+});
 
 // Run ONLY the Claude slot for a ticker with a specific model. Mirrors the
 // callClaude() inside /api/analyze (Brave live search + detailed pro prompt),
@@ -896,46 +1097,7 @@ app.post('/api/analyze', async (req, res) => {
 
   const systemPrompt = SYSTEM_PROMPT;
 
-  const geminiPrompt = `Search the web for the latest information on ${ticker} and analyze it as a stock investment. Find the most current live market data available.
-
-Respond ONLY with a valid JSON object — no markdown, no explanation, no backticks. Use exactly these fields:
-{
-  "companyName": <full company name e.g. "Apple Inc.">,
-  "currentPrice": <current stock price as a number>,
-  "peRatio": <trailing P/E ratio as a number, or null if not available>,
-  "marketCap": <market cap as a formatted string e.g. "$3.2T" or "$450B">,
-  "week52Low": <52-week low price as a number>,
-  "week52High": <52-week high price as a number>,
-  "bullScore": <number 0-100, your honest bull conviction>,
-  "bearScore": <number 0-100, your honest bear conviction>,
-  "verdict": <one of: "Strong Buy", "Bullish", "Lean Buy", "Neutral", "Lean Sell", "Bearish", "Strong Sell">,
-  "bullCase": <2-3 specific sentences on the strongest bull argument RIGHT NOW>,
-  "bearCase": <2-3 specific sentences on the most serious bear risk RIGHT NOW>,
-  "topCatalyst": <single most important upcoming catalyst>,
-  "topRisk": <single most important near-term risk>,
-  "confidence": <number 0-100, how confident you are in this analysis>,
-  "sector": <the stock's sector e.g. "Technology", "Healthcare", "Energy">,
-  "industry": <the specific industry e.g. "Semiconductors", "Drug Manufacturers", "Consumer Electronics">,
-  "description": <2 sentence company description — what they do and why they matter>,
-  "riskProfile": <number 1-10, where 1=very stable blue chip, 10=highly speculative>,
-  "bullCatalysts": <array of 3-4 objects with fields: text (string, the catalyst itself, 1 sentence), date (string like "Jul 2026"), status ("upcoming" if future, "prior" if already happened), detail (string, 2-3 sentences elaborating on THIS SPECIFIC catalyst only — why it matters and what would need to happen for it to play out, plain language, explain any technical term the moment you use it)>,
-  "bearRisks": <array of 3-4 objects with fields: text (string, the risk itself, 1 sentence), detail (string, 2-3 sentences elaborating on THIS SPECIFIC risk only — why it matters and what could trigger it, plain language, explain any technical term the moment you use it)>,
-  "news": <array of 3-4 objects — ONLY from last 60 days. Fields: title (string), date (string like "Jun 2026"), tag (one of EARNINGS/NEWS/EVENT/DIVIDEND), detail (string, 2-3 sentences elaborating on THIS SPECIFIC news item only — what happened, why it matters to investors, plain language, explain any technical term the moment you use it)>,
-  "bullScore1W": <number 0-100, bull conviction for next 7 days ONLY. Weight heavily: recent price momentum (has it run hard already?), this week's macro events, market sentiment right now, short-term overbought/oversold conditions. Be skeptical of stocks up 15%+ in the last 30 days>,
-  "bullScore1M": <number 0-100, bull conviction for next 30 days. Weight: upcoming earnings, sector rotation, news cycle, medium-term trend, whether recent price move is sustainable>,
-  "bullScore1Y": <number 0-100, bull conviction for next 12 months. Weight: fundamentals, competitive moat, macro tailwinds, long-term valuation vs growth potential>,
-  "earningsDate": <next scheduled earnings date as a string e.g. "Jul 24, 2026", or "Unknown">,
-  "analystPriceTarget": <average Wall Street analyst price target as a number, or null>,
-  "dividendYield": <dividend yield as a string e.g. "1.8%" or "None">,
-  "analystBuy": <percentage of analysts with Buy rating, 0-100>,
-  "analystHold": <percentage of analysts with Hold rating, 0-100>,
-  "analystSell": <percentage of analysts with Sell rating, 0-100>,
-  "stockSentimentScore": <number 0-100 where 0=extremely oversold, 50=neutral, 100=extremely overbought. Evaluate THIS SPECIFIC STOCK independently — based on its own RSI, price vs its 50/200-day moving averages, and recent price momentum. Do NOT anchor to the sector score. A stock can be oversold in a hot sector or overbought in a cold one — reflect that reality>,
-  "sectorSentimentScore": <number 0-100, same scale but evaluate the BROADER SECTOR independently — based on sector ETF momentum, recent sector-wide fund flows, and macro tailwinds/headwinds. Reflect the sector as a whole, not this individual stock. These two scores should often differ significantly>,
-  "entrySignal": <one of: "Strong Entry", "Good Entry", "Decent Entry", "Wait", "Avoid" — be critical and honest. Consider: has the stock run hard recently? Is the sector overbought? Are there near-term macro risks? Default toward "Wait" if the stock is up 15%+ in the last 30 days without a clear near-term catalyst. "Strong Entry" should be rare>,
-  "sentimentAnalysis": <2-3 sentences explaining the stock and sector sentiment positions and what they mean for entry timing>,
-  "reasoning": <2-3 sentences on what YOU weighted most in your analysis and why you landed at your verdict — be specific to this stock right now, not generic>
-}`;
+  const geminiPrompt = buildGeminiPrompt(ticker);
 
   const shortPrompt = `Analyze ${ticker} as a stock investment based on current market conditions, recent news, and fundamentals. Consider the current broader market environment and any recent significant price moves.
 
@@ -1048,8 +1210,14 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: 450, // all tiers now use the reasoning-bearing prompt; needs room for reasoning
+        model: GPT_API_MODEL,
+        // Low reasoning effort keeps hidden-reasoning cost + latency down. If this model
+        // rejects the param, the call errors — watch the [GPT] logs and drop this line.
+        reasoning_effort: 'low',
+        // GPT-5 family uses `max_completion_tokens` (it rejects the old `max_tokens`). Set high
+        // enough that reasoning + JSON never hit the ceiling (finish=length ⇒ truncated). You
+        // only pay for tokens actually generated, so a high cap costs nothing when output is short.
+        max_completion_tokens: 2500,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, gptClaudePrompt) }
@@ -1058,9 +1226,16 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
+    // COST WATCH: real token usage per GPT call so cost can be validated from logs.
+    // reasoning_tokens exposes hidden thinking (billed as output); finish=length means the
+    // JSON was truncated and max_completion_tokens needs raising.
+    if (data.usage) {
+      console.log(`[GPT][cost] ${GPT_API_MODEL} — input=${data.usage.prompt_tokens || 0} output=${data.usage.completion_tokens || 0} reasoning=${data.usage.completion_tokens_details?.reasoning_tokens ?? 'n/a'} (finish=${data.choices?.[0]?.finish_reason || 'n/a'})`);
+    }
     const text = data.choices?.[0]?.message?.content || '';
     const stripped = text.replace(/```json|```/g, '').trim();
-    return { ...JSON.parse(extractJSON(stripped)), model: 'GPT-4o' };
+    // `model` stays the stable display key; `apiModel` carries the real id for the chip hover.
+    return { ...JSON.parse(extractJSON(stripped)), model: 'GPT-4o', apiModel: GPT_API_MODEL };
   }
 
   async function callClaude(modelId) {
@@ -1105,8 +1280,9 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROK_API_KEY}` },
       body: JSON.stringify({
-        model: 'grok-4-1-fast-non-reasoning',
-        max_tokens: 450,
+        model: GROK_API_MODEL,
+        reasoning_effort: 'low', // grok-4.3 is a reasoning model; keep effort low for cost/latency
+        max_tokens: 1500,        // headroom so reasoning + JSON don't truncate (was 450)
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, proShortPrompt) }
@@ -1115,9 +1291,13 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
     });
     const data = await response.json();
     if (data.error) throw new Error(data.error.message);
+    // COST WATCH: real token usage per Grok call so cost/latency can be validated from logs.
+    if (data.usage) {
+      console.log(`[Grok][cost] ${GROK_API_MODEL} — input=${data.usage.prompt_tokens || 0} output=${data.usage.completion_tokens || 0} reasoning=${data.usage.completion_tokens_details?.reasoning_tokens ?? data.usage.reasoning_tokens ?? 'n/a'} (finish=${data.choices?.[0]?.finish_reason || 'n/a'})`);
+    }
     const text = data.choices?.[0]?.message?.content || '';
     const stripped = text.replace(/```json|```/g, '').trim();
-    return { ...JSON.parse(extractJSON(stripped)), model: 'Grok' };
+    return { ...JSON.parse(extractJSON(stripped)), model: 'Grok', apiModel: GROK_API_MODEL };
   }
 
   try {
