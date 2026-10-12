@@ -93,6 +93,9 @@
   /* ── Chrome: nav, buttons, search ── */
   .nav-btn { transition:background .15s ease, border-color .15s ease, transform .15s ease; white-space:nowrap; }
   .nav-btn:hover { background:rgba(255,255,255,.1) !important; border-color:rgba(255,255,255,.2) !important; transform:translateY(-1px); }
+  /* Neutral placeholder while the signed-in user's plan loads (never the Free state) */
+  .plan-skel { display:inline-block; flex-shrink:0; vertical-align:middle; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); animation:planPulse 1.4s ease-in-out infinite; }
+  @keyframes planPulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
   .btn-primary { transition:transform .15s ease, box-shadow .15s ease, filter .15s ease; }
   .btn-primary:hover { transform:translateY(-1px); filter:brightness(1.08); box-shadow:0 8px 22px rgba(61,133,255,.32); }
   .btn-gold { transition:transform .15s ease, box-shadow .15s ease, filter .15s ease; white-space:nowrap; }
@@ -148,7 +151,7 @@
   .tnum, .eyebrow, .eyebrow-pill, .stat .v, .stat .l, .cticker, .split-badge, .cvotes, .usage-line { font-family:'JetBrains Mono', ui-monospace, monospace; }
 
   /* Hero: soft radial green glow behind the hero area only */
-  .hero-landing { position:relative; }
+  .hero-landing { position:relative; overflow-x:clip; } /* glow can't widen the page on narrow screens */
   .hero-glow { position:absolute; left:50%; top:-30px; transform:translateX(-50%); width:720px; height:460px; max-width:130vw; background:radial-gradient(ellipse at center, rgba(0,200,150,.15), rgba(0,200,150,0) 62%); pointer-events:none; z-index:0; }
   .hero-landing > *:not(.hero-glow) { position:relative; z-index:1; }
 
@@ -197,10 +200,8 @@
   .seg.neutral { background:#e3b341; }
   .cnote { font-size:12.5px; color:#8b96ad; line-height:1.5; }
   .cline1 { font-size:12px; color:#5e6a85; margin-bottom:4px; }
-  .cline2 { font-size:12px; color:#8b96ad; }
-  .cpct { font-weight:600; }
-  .cpct.up { color:#00c896; }
-  .cpct.down { color:#ff4757; }
+  .cline2 { font-size:11.5px; color:#8b96ad; }
+  .cpct { font-weight:600; color:#8b96ad; white-space:nowrap; }
   .clogo { width:22px; height:22px; border-radius:5px; object-fit:contain; background:#fff; flex-shrink:0; }
   .cards-footer { max-width:760px; margin:18px auto 0; text-align:center; font-size:11px; color:#5e6a85; line-height:1.6; }
 
@@ -209,6 +210,16 @@
   .btn-analyze:hover { filter:brightness(1.06); transform:translateY(-1px); }
   .btn-upgrade { background:#00c896; color:#06251c; border:none; font-family:inherit; white-space:nowrap; transition:filter .15s ease, transform .15s ease; }
   .btn-upgrade:hover { filter:brightness(1.06); transform:translateY(-1px); }
+
+  /* Nav actions overflowed the 320px viewport by ~2-3px; trim the gap only at <=360px */
+  @media (max-width:360px) {
+    .nav-actions { gap: 6px !important; }
+  }
+
+  /* Example cards: 3 columns wrap the result line at <=884px (tested), so stack below 940px */
+  @media (max-width:940px) {
+    .cards-grid { grid-template-columns:1fr; }
+  }
 
   /* Responsive — mobile pass (test at 390px) */
   @media (max-width:600px) {
@@ -339,21 +350,65 @@ async function openBillingPortal() {
   }
 }
 
-async function refreshProStatus() {
-  const { data: { session } } = await sbClient.auth.getSession();
-  if (!session?.access_token) {
-    state.tier = 'free';
-    return;
-  }
+// ── Plan (tier) — DISPLAY ONLY. Every limit is still enforced by the backend. ──
+// Primary source: the user's own `profiles.tier` row, read straight from Supabase via the
+// own-row SELECT policy (no Render wake-up in the path). If that read errors or returns no
+// row, fall back to GET /api/pro-status (service-role read of the same column).
+async function fetchTier() {
   try {
+    const { data, error } = await sbClient.from('profiles').select('tier').eq('id', currentUser.id).maybeSingle();
+    if (error) throw error;
+    if (data) return (data.tier === 'pro' || data.tier === 'premium') ? data.tier : 'free';
+    throw new Error('no profiles row visible');
+  } catch (e) {
+    console.warn('[plan] direct profiles read failed, using /api/pro-status:', e?.message || e);
+    const { data: { session } } = await sbClient.auth.getSession();
     const res = await fetch(`${BACKEND}/api/pro-status`, {
-      headers: { 'Authorization': `Bearer ${session.access_token}` }
+      headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
     });
     const json = await res.json();
-    state.tier = json.tier || 'free';
-  } catch (e) {
-    console.warn('Pro status refresh failed:', e);
+    return json.tier || 'free';
   }
+}
+
+// Resolves anything waiting on waitForPlan() once the tier is no longer 'loading'.
+let planWaiters = [];
+function resolvePlan(tier) {
+  state.tier = tier;
+  const waiters = planWaiters; planWaiters = [];
+  waiters.forEach(fn => fn());
+}
+// Wait (up to `ms`) for a loading plan to resolve, so a paying user is never treated as
+// Free while the plan read is still in flight.
+function waitForPlan(ms = 3000) {
+  if (!planLoading()) return Promise.resolve();
+  return new Promise(resolve => {
+    const done = () => { clearTimeout(t); planWaiters = planWaiters.filter(f => f !== done); resolve(); };
+    const t = setTimeout(done, ms);
+    planWaiters.push(done);
+  });
+}
+
+async function refreshProStatus() {
+  if (!currentUser) { resolvePlan('free'); return; }
+  const uid = currentUser.id;
+  try {
+    const tier = await fetchTier();
+    if (currentUser?.id === uid) resolvePlan(tier); // ignore a stale answer after sign-out / user switch
+  } catch (e) {
+    console.warn('Plan lookup failed:', e);
+    if (planLoading() && currentUser?.id === uid) resolvePlan('free'); // never stay on the placeholder
+  }
+}
+
+// Fire-and-forget wake-up for Render's free tier. At most one ping per 60s per tab.
+function warmBackend() {
+  try {
+    const last = Number(sessionStorage.getItem('qc_warm_at')) || 0;
+    if (Date.now() - last < 60000) return;
+    sessionStorage.setItem('qc_warm_at', String(Date.now()));
+  } catch (e) { /* storage blocked — still ping */ }
+  try { fetch(`${BACKEND}/api/health`, { cache: 'no-store', keepalive: true }).catch(() => {}); } catch (e) {}
 }
 
 // ── Watchlist / saved analyses (server-backed via /api/saved-analyses) ──────
@@ -402,6 +457,7 @@ function showSaveCapModal() {
 
 async function saveCurrentAnalysis() {
   if (!currentUser) { state.authModal = true; state.authMode = 'login'; render(); return; }
+  await waitForPlan(); // don't apply the Free watchlist cap while the real plan is loading
   const ticker = state.ticker;
   const ai = state.aiData[ticker];
   if (!ticker || !ai) return;
@@ -493,10 +549,7 @@ async function initAuth() {
   } catch (e) { /* ignore URL parse issues */ }
 
   const { data: { session } } = await sbClient.auth.getSession();
-  currentUser = session?.user ?? null;
-  await loadSavedAnalyses();
-  if (currentUser) { await ensureProfile(); await refreshProStatus(); }
-  render();
+  applySession(session); // draws immediately; plan + watchlist load in parallel
   // Deep-link from pricing.html: ?checkout=pro|premium initiates the same Stripe
   // checkout flow as the in-app buttons (prompts sign-in first if needed).
   const checkoutParam = new URLSearchParams(window.location.search).get('checkout');
@@ -507,17 +560,32 @@ async function initAuth() {
     window.history.replaceState({}, '', url);
     startCheckout(checkoutParam);
   }
-  sbClient.auth.onAuthStateChange(async (_event, session) => {
-    currentUser = session?.user ?? null;
-    await loadSavedAnalyses();
-    if (currentUser) {
-      await ensureProfile();
-      await refreshProStatus();
-    } else {
-      state.tier = 'free';
-    }
+  // INITIAL_SESSION / TOKEN_REFRESHED for the same user are no-ops (deduped in applySession).
+  sbClient.auth.onAuthStateChange((_event, session) => { applySession(session); });
+}
+
+// Apply a (possibly null) session. Runs the plan read and the watchlist load in parallel,
+// once per user id — repeat events for the same user only refresh `currentUser`.
+let appliedUserId; // undefined = no session applied yet
+function applySession(session) {
+  currentUser = session?.user ?? null;
+  const uid = currentUser?.id ?? null;
+  if (uid === appliedUserId) return;
+  appliedUserId = uid;
+  if (!uid) {
+    resolvePlan('free');
+    state.savedAnalyses = [];
     render();
-  });
+    return;
+  }
+  state.tier = 'loading';
+  render();
+  // Deferred: supabase-js holds its auth lock while notifying listeners, so client calls
+  // made synchronously from inside onAuthStateChange can stall. setTimeout lets it release.
+  setTimeout(() => {
+    refreshProStatus().then(render);
+    loadSavedAnalyses().then(render);
+  }, 0);
 }
 
 async function signUp(email, password) {
@@ -536,6 +604,7 @@ async function signIn(email, password) {
 // lands in the exact same authenticated state as an email sign-in (see initAuth).
 async function signInWithGoogle() {
   if (state.googleLoading) return;
+  warmBackend(); // wake Render during the Google round trip (keepalive survives the redirect)
   state.authError = '';
   state.googleLoading = true; render();
   try {
@@ -554,23 +623,6 @@ async function signInWithGoogle() {
     state.googleLoading = false;
     state.authError = 'Could not start Google sign-in. Please try again.';
     render();
-  }
-}
-
-// ── Ensure a profiles row exists for the signed-in user (email OR OAuth) ──
-// Email sign-ups never created a profiles row from the frontend, so this makes profile
-// creation uniform across BOTH paths. Idempotent (insert-if-missing, no-op if the row
-// already exists — e.g. from a DB trigger or a prior session) and best-effort: if RLS
-// forbids the insert we swallow it so auth still succeeds. The is_admin flag and the
-// promoted-analyses permission check both read this table, so every user needs a row.
-async function ensureProfile() {
-  if (!currentUser) return;
-  try {
-    const { error } = await sbClient.from('profiles')
-      .upsert({ id: currentUser.id }, { onConflict: 'id', ignoreDuplicates: true });
-    if (error) console.warn('[profiles] ensure row skipped:', error.message);
-  } catch (e) {
-    console.warn('[profiles] ensure row error:', e);
   }
 }
 
@@ -811,6 +863,20 @@ function momentumColor(s){ return s>=65?"#00c896":s>=50?"#e3b341":s>=35?"#ff8c42
 
 let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false,googleLoading:false,modelRetry:{},modelRetryMsg:{}};
 
+// tier 'loading' = possibly signed in, plan not read yet. Shown as a neutral placeholder,
+// never as Free (no upgrade prompts / limits). isPaid() is false for it, so nothing unlocks.
+// "Possibly signed in" = a stored supabase-js session, or an OAuth redirect landing in the URL.
+function hasStoredSession(){
+  try {
+    const key = 'sb-' + new URL(SUPABASE_URL).hostname.split('.')[0] + '-auth-token';
+    if (localStorage.getItem(key)) return true;
+  } catch (e) { /* storage blocked */ }
+  return /access_token=|[?&]code=/.test(window.location.hash + window.location.search);
+}
+if (hasStoredSession()) state.tier = 'loading';
+function planLoading(){ return state.tier === 'loading'; }
+const PLAN_SKEL = (w, h, r) => `<span class="plan-skel" aria-hidden="true" style="width:${w}px;height:${h}px;border-radius:${r}px"></span>`;
+
 function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
 function isPremium(){ return state.tier === 'premium'; }
 function savedLimit(){ return state.tier === 'premium' ? Infinity : state.tier === 'pro' ? 10 : 2; }
@@ -872,6 +938,7 @@ function closeModelPopup(){ state.modelPopup = null; state.fableConfirm = false;
 // Fable 5 response comes back (see runClaudeSwitch, which sets state.useFable from
 // the backend's fableUsed flag).
 function selectClaudeModel(useFable){
+  if (planLoading()) return; // plan not known yet — never show an upgrade prompt to a payer
   if (!isPaid()) { state.modelPopup = null; state.fableConfirm = false; showPricingModal(); return; }
   if (useFable) {
     if (fableRemaining() <= 0) return; // at daily cap — option is disabled, no confirm, no gold
@@ -1066,9 +1133,9 @@ function featLine(text, cColor, tColor){ return `<div style="display:flex;align-
 // No DB read, no fetch, no auto-refresh. Verdict order is GPT, Gemini, Claude, Perplexity, Grok.
 // If the array is empty the section is hidden entirely.
 const RECENT_CONSENSUS = [
-  { ticker: "NBIS", analyzedOn: "2026-07-16", verdicts: ["bull", "bull", "bull", "bull", "bull"], startPrice: 176.66, endPrice: 221.07, endOn: "2026-10-09" },
+  { ticker: "NBIS", analyzedOn: "2026-07-16", verdicts: ["bull", "bull", "bull", "bull", "bull"], startPrice: 176.66, endPrice: 277.68, endOn: "2026-08-14" },
   { ticker: "MCD",  analyzedOn: "2026-06-14", verdicts: ["bear", "bull", "bear", "bear", "bear"], startPrice: 284.83, endPrice: 235.23, endOn: "2026-10-09" },
-  { ticker: "NVO",  analyzedOn: "2026-07-31", verdicts: ["bear", "bull", "bear", "neutral", "bull"], startPrice: 46.76, endPrice: 38.64, endOn: "2026-10-09" }
+  { ticker: "NVO",  analyzedOn: "2026-07-31", verdicts: ["bear", "bull", "bear", "neutral", "bull"], startPrice: 46.76, endPrice: 37.91, endOn: "2026-09-30" }
 ];
 
 function escHtml(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
@@ -1090,9 +1157,16 @@ function voteCount(verdicts){
   return parts.join(' · ');
 }
 
+// Length of the date span shown on a card: day count / 30.44, rounded → "1 month" / "N months".
+function spanMonths(fromIso, toIso){
+  const d = iso => { const p = String(iso || '').split('-').map(Number); return Date.UTC(p[0], p[1]-1, p[2]); };
+  const n = Math.round((d(toIso) - d(fromIso)) / 86400000 / 30.44);
+  return `${n} ${n === 1 ? 'month' : 'months'}`;
+}
+
 // Renders the example-analysis cards from the static RECENT_CONSENSUS array. The percent is
 // computed at render time from start/end price, shown to one decimal in a neutral muted color
-// (never green/red). `timeframe` is optional — if absent, nothing is shown for it.
+// (never green/red). The period label is computed from analyzedOn/endOn (see spanMonths).
 function recentConsensusCards(){
   return RECENT_CONSENSUS.map(r=>{
     const verdicts = Array.isArray(r.verdicts) ? r.verdicts : [];
@@ -1100,7 +1174,6 @@ function recentConsensusCards(){
     const pct = (r.endPrice - r.startPrice) / r.startPrice * 100;
     const up = pct >= 0;
     const pctDisp = `${up ? '▲' : '▼'} ${up ? '+' : ''}${pct.toFixed(1)}%`;
-    const tf = r.timeframe ? ` · ${escHtml(r.timeframe)}` : '';
     return `<div class="ccard">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <img class="clogo" src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(r.ticker)}" alt="" loading="lazy"
@@ -1110,8 +1183,8 @@ function recentConsensusCards(){
       </div>
       <div class="cvotes tnum">${voteCount(verdicts)}</div>
       <div class="splitbar">${segs}</div>
-      <div class="cline1 tnum">Analyzed ${fmtMonthDay(r.analyzedOn)}${tf}</div>
-      <div class="cline2 tnum">${fmtMonthDay(r.analyzedOn)} → ${fmtMonthDay(r.endOn)} <span class="cpct ${up?'up':'down'}">${pctDisp}</span></div>
+      <div class="cline1 tnum">Analyzed ${fmtMonthDay(r.analyzedOn)}</div>
+      <div class="cline2 tnum">${fmtMonthDay(r.analyzedOn)} → ${fmtMonthDay(r.endOn)} · ${spanMonths(r.analyzedOn, r.endOn)} <span class="cpct">${pctDisp}</span></div>
     </div>`;
   }).join('');
 }
@@ -1245,6 +1318,8 @@ async function analyzeStock() {
   // full analysis consume another Fable use, so every full analysis starts on Haiku.
   state.useFable = false;
   render();
+  // If the plan is still loading, wait for it (~3s max) rather than analysing as Free.
+  await waitForPlan();
 
   // Safety timeout — never stay stuck loading more than 95 seconds. This must sit ABOVE
   // the backend's 90s Claude/Fable ceiling, otherwise a slow (Fable-enabled) analysis
@@ -1286,7 +1361,7 @@ async function analyzeStock() {
 
     const aiJson = await aiRes.json();
     if (aiJson && !aiJson.error) {
-      state.tier = aiJson.tier || 'free';
+      resolvePlan(aiJson.tier || 'free');
       state.usageRemaining = aiJson.usageRemaining ?? state.usageRemaining;
       state.claudeModelName = aiJson.claudeModel || 'Claude Haiku 4.5';
       // Gold reflects what the backend actually used for the Claude slot this run.
@@ -1404,6 +1479,7 @@ function manualRetryModel(name) {
 }
 
 async function analyzeXSentiment() {
+  await waitForPlan();
   if (!isPaid()) { showPricingModal(); return; }
   const ticker = state.ticker;
   if (!ticker) return;
@@ -1462,13 +1538,16 @@ function render(){
             <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffd700" stroke="none" style="flex-shrink:0"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg><span class="wl-label">Watchlist</span>
             ${state.savedAnalyses.length > 0 ? `<span style="position:absolute;top:-6px;right:-6px;background:linear-gradient(135deg,#4a90ff,#2f6fe0);color:#fff;font-size:9px;font-weight:700;width:17px;height:17px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(61,133,255,.5)">${state.savedAnalyses.length}</span>` : ''}
           </button>
-          ${state.tier==='free'
+          ${planLoading()
+            ? PLAN_SKEL(84, 33, 10)
+            : state.tier==='free'
             ? `<button onclick="showPricingModal()" class="btn-upgrade" style="padding:8px 15px;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer">Upgrade</button>`
             : state.tier==='pro'
               ? `<a href="pricing.html" style="padding:8px 15px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(122,90,248,.35);text-decoration:none;display:inline-flex;align-items:center">Upgrade</a>`
               : ''}
           ${currentUser
             ? `<button onclick="state.authModal=true;render()" class="btn-primary" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#4a90ff,#2f6fe0);border:1px solid rgba(255,255,255,.15);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 3px 12px rgba(61,133,255,.35)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6.5 8-6.5s8 2.5 8 6.5"/></svg></button>`
+            : planLoading() ? PLAN_SKEL(36, 36, 18)
             : `<button onclick="state.authModal=true;state.authMode='login';render()" class="nav-btn" style="padding:8px 14px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.1);cursor:pointer">Sign in</button>`
           }
         </div>
@@ -1494,6 +1573,7 @@ function render(){
           // Usage line — keeps the live free-tier counter, formatted as the locked copy
           // "<count> · Upgrade · No credit card". Paid users see no line.
           if (isPaid()) return '';
+          if (planLoading()) return `<div class="usage-line">${PLAN_SKEL(240, 16, 6)}</div>`;
           const rem = state.usageRemaining;
           const txt = rem === null ? '2 free analyses per day'
             : rem === 0 ? 'No free analyses left today'
@@ -2091,7 +2171,7 @@ function render(){
             <button onclick="state.watchlistOpen=false;state.authModal=true;state.authMode='login';render()" class="btn-primary" style="padding:9px 20px;border-radius:10px;font-size:13px;font-weight:700;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(61,133,255,.35)">Log In</button>
           </div>
         ` : `
-          ${!isPremium() ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;margin-bottom:10px;border-radius:10px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18)">
+          ${(state.tier==='free' || state.tier==='pro') ? `<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;margin-bottom:10px;border-radius:10px;background:rgba(255,215,0,.06);border:1px solid rgba(255,215,0,.18)">
             <span class="tnum" style="font-size:11.5px;font-weight:700;color:#ffd700">${state.savedAnalyses.length}/${savedLimit()} saved</span>
             <span onclick="state.watchlistOpen=false;showPricingModal()" style="font-size:10px;color:rgba(255,255,255,.5);cursor:pointer;text-decoration:underline;text-decoration-color:rgba(255,255,255,.25)">Upgrade for ${isPaid()?'unlimited':'more'}</span>
           </div>` : ''}
@@ -2169,6 +2249,14 @@ function render(){
           <h3 style="font-size:17px;font-weight:700;color:#fff;margin-bottom:4px">My Account</h3>
           <p style="font-size:11.5px;color:rgba(255,255,255,.4)">${currentUser.email}</p>
         </div>
+        ${planLoading() ? `
+        <div style="background:#0d1426;border-radius:12px;padding:16px;margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Current Plan</span>
+            ${PLAN_SKEL(64, 20, 6)}
+          </div>
+        </div>
+        ` : `
         <div style="background:#0d1426;border-radius:12px;padding:16px;margin-bottom:16px">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Current Plan</span>
@@ -2195,6 +2283,7 @@ function render(){
           ? `<div style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.1);color:#00c896;border:1.5px solid rgba(0,200,150,.3);text-align:center;margin-bottom:10px">✓ You're on Premium</div>`
           : `<button onclick="showPricingModal()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer;margin-bottom:10px">${state.tier==='pro'?'Upgrade to Premium':'Upgrade your plan'}</button>`
         }
+        `}
         ${isPaid() ? `<button onclick="openBillingPortal()" ${state.portalLoading?'disabled':''} style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);cursor:${state.portalLoading?'default':'pointer'};margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:7px">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
           ${state.portalLoading?'Opening…':'Manage Subscription'}
@@ -2245,6 +2334,7 @@ function render(){
     </div>`:""}
   </div>`;
 }
+warmBackend();
 render();
 initAuth();
 
@@ -2256,7 +2346,8 @@ async function handleAuth() {
       state.authModal = false;
       state.authEmail = '';
       state.authPassword = '';
-      await refreshProStatus();
+      render(); // close the modal now; the SIGNED_IN event already started the plan read
+      await waitForPlan(10000); // checkout / re-analysis below need the real plan
 
       if (state.resumeCheckout) {
         state.resumeCheckout = false;
