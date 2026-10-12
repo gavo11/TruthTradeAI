@@ -336,29 +336,43 @@ async function callAnthropicMessages(modelId, systemPrompt, userContent, tier) {
 }
 
 // ── Verify Supabase token and look up the user's membership tier ───────────
+// A transient lookup failure (network error / non-OK Supabase response) is retried once
+// after ~500ms before falling back to 'free'; every fallback is logged. A rejected token
+// (401/403 from /auth/v1/user) is a real "not signed in" answer and is not retried.
 async function getUserTier(authHeader) {
   if (!authHeader || !authHeader.startsWith('Bearer ')) return 'free';
   const token = authHeader.slice(7);
-  try {
+  const attempt = async () => {
     const userRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { 'Authorization': `Bearer ${token}`, 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY }
     });
-    if (!userRes.ok) return 'free';
+    if (userRes.status === 401 || userRes.status === 403) return { tier: 'free' };
+    if (!userRes.ok) throw new Error(`auth/v1/user HTTP ${userRes.status}`);
     const userData = await userRes.json();
     const userId = userData?.id;
-    if (!userId) return 'free';
+    if (!userId) return { tier: 'free' };
     const profileRes = await fetch(
       `${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=tier`,
       { headers: { 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`, 'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY } }
     );
-    if (!profileRes.ok) return 'free';
+    if (!profileRes.ok) throw new Error(`profiles HTTP ${profileRes.status}`);
     const profiles = await profileRes.json();
     const tier = profiles?.[0]?.tier;
-    return (tier === 'pro' || tier === 'premium') ? tier : 'free';
-  } catch (e) {
-    console.warn('Tier check failed:', e.message);
-    return 'free';
+    return { tier: (tier === 'pro' || tier === 'premium') ? tier : 'free' };
+  };
+  for (let i = 0; i < 2; i++) {
+    try {
+      return (await attempt()).tier;
+    } catch (e) {
+      if (i === 0) {
+        console.warn(`[getUserTier] lookup failed (${e.message}) — retrying once in 500ms`);
+        await new Promise(r => setTimeout(r, 500));
+      } else {
+        console.warn(`[getUserTier] lookup failed again (${e.message}) — FALLING BACK to 'free'`);
+      }
+    }
   }
+  return 'free';
 }
 
 // ── Get the Supabase user ID from an auth header, or null if not signed in ──
