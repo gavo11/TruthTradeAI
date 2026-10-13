@@ -23,16 +23,18 @@ const GPT_API_MODEL = 'gpt-5.6-luna'; // replaces gpt-5-mini (shuts down Dec 11,
 // used for the API call and returned to the frontend as `apiModel` for the chip hover.
 const GROK_API_MODEL = 'grok-4.3';
 
+// Default Claude consensus model (analyze, analyze-model and retry paths). Haiku 5.5 thinks
+// adaptively by default; we run it at effort 'low' (see callAnthropicMessages).
+const CLAUDE_HAIKU_MODEL = 'claude-haiku-5-5';
+
 // ── Per-model output token budgets (tune here; every token is billed) ──────────
-// Paid Claude uses buildProShortPrompt (has a `reasoning` field) + Brave live context,
-// which pushed the reasoning past the old 450 ceiling and truncated the JSON mid-string.
-// 650 gives headroom above that overflow while staying tight (raise only if the
-// [Claude][cost] log shows output hitting this ceiling).
-const HAIKU_MAX_TOKENS = 650;       // paid Haiku (proShortPrompt + live context)
-// Free Haiku now also uses proShortPrompt (with a `reasoning` field) so Free users can
-// read Claude's reasoning in the unlocked "individual model analysis" reveal — so it
-// needs the same headroom as paid Haiku, not the old 250 (which had no reasoning field).
-const HAIKU_FREE_MAX_TOKENS = 650;  // free Haiku (proShortPrompt + reasoning)
+// Haiku 5.5's thinking tokens draw from max_tokens, so the old 650 (sized for Haiku 4.5's
+// JSON-only output) could truncate the JSON verdict. 2000 leaves room for low-effort
+// thinking plus the proShortPrompt JSON (watch the [Claude][cost] log for stop at the cap).
+const HAIKU_MAX_TOKENS = 2000;       // paid Haiku (proShortPrompt + live context)
+// Free Haiku also uses proShortPrompt (with a `reasoning` field) so Free users can read
+// Claude's reasoning in the unlocked "individual model analysis" reveal — same headroom.
+const HAIKU_FREE_MAX_TOKENS = 2000;  // free Haiku (proShortPrompt + reasoning)
 // Real Fable 5 usage measured ~392 output tokens (~$0.033/call). 2200 is generous
 // headroom (~5.5x actual) while capping worst-case cost far below the old 8000.
 const FABLE_MAX_TOKENS = 2200;
@@ -277,8 +279,9 @@ async function callAnthropicMessages(modelId, systemPrompt, userContent, tier) {
     system: systemPrompt,
     messages: [{ role: 'user', content: userContent }]
   };
-  // effort is supported on Fable (reasoning) but 400s on Haiku — only send it for Fable.
-  if (isFable) body.output_config = { effort: 'low' };
+  // Both Fable 5 and Haiku 5.5 take output_config.effort; we only need a short JSON verdict,
+  // so both run at 'low'. No temperature/top_p/top_k — non-default values 400 on these models.
+  body.output_config = { effort: 'low' };
 
   let response, data;
   try {
@@ -311,12 +314,12 @@ async function callAnthropicMessages(modelId, systemPrompt, userContent, tier) {
 
   // COST WATCH: log real token usage per call so the Fable 5 caps can be validated
   // against actual $. Fable 5 output (INCLUDES thinking tokens) bills at $50/1M,
-  // input at $10/1M; Haiku at $5/$1 per 1M. output_tokens here already covers the
-  // reasoning tokens, so this is the true per-call cost.
+  // input at $10/1M; Haiku 5.5 at $0.10 in / $0.50 out per 1M. output_tokens here already
+  // covers the reasoning tokens, so this is the true per-call cost.
   if (data.usage) {
     const inTok = data.usage.input_tokens || 0;
     const outTok = data.usage.output_tokens || 0;
-    const cost = isFable ? (inTok / 1e6 * 10 + outTok / 1e6 * 50) : (inTok / 1e6 * 1 + outTok / 1e6 * 5);
+    const cost = isFable ? (inTok / 1e6 * 10 + outTok / 1e6 * 50) : (inTok / 1e6 * 0.10 + outTok / 1e6 * 0.50);
     console.log(`[Claude][cost] ${modelId} — input=${inTok} output=${outTok} (of ${body.max_tokens} max) → ~$${cost.toFixed(4)} this call`);
   }
 
@@ -725,6 +728,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROK_API_KEY}` },
     body: JSON.stringify({
       model: GROK_API_MODEL,
+      reasoning: { effort: 'low' }, // explicit; matches grok-4.3's current default
       input: [{ role: 'user', content: xSentimentPrompt }],
       tools: [{ type: 'x_search' }],
       max_turns: 1
@@ -855,13 +859,16 @@ async function runModelStandalone(modelName, ticker, tier, searchBlock, livePric
       );
       return await res.json();
     };
-    let data = await geminiRequest('gemini-3.1-flash-lite');
+    let servedBy = 'gemini-3.1-flash-lite';
+    let data = await geminiRequest(servedBy);
     if (data.error) {
       if (typeof data.error.message === 'string' && data.error.message.toLowerCase().includes('high demand')) {
-        data = await geminiRequest('gemini-3-flash-preview');
+        servedBy = 'gemini-3.6-flash';
+        data = await geminiRequest(servedBy);
         if (data.error) throw new Error(data.error.message);
       } else throw new Error(data.error.message);
     }
+    console.log(`[Gemini] retry ${ticker} served by ${servedBy}`);
     const text = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('') || '';
     if (!text) throw new Error('Gemini search grounding returned no content');
     const stripped = text.replace(/<tool_code>[\s\S]*?<\/tool_code>/g, '').replace(/```json|```/g, '').trim();
@@ -884,7 +891,7 @@ async function runModelStandalone(modelName, ticker, tier, searchBlock, livePric
 
   if (modelName === 'Claude') {
     // Retry the default consensus Claude (Haiku). The Fable swap has its own path.
-    const result = await callAnthropicMessages('claude-haiku-4-5-20251001', sys,
+    const result = await callAnthropicMessages(CLAUDE_HAIKU_MODEL, sys,
       pc + withLiveSearch(ticker, searchBlock, proShort), tier);
     return { ...result, model: 'Claude' };
   }
@@ -980,7 +987,7 @@ app.post('/api/retry-model', async (req, res) => {
 // callClaude() inside /api/analyze (Brave live search + detailed pro prompt),
 // standalone so a Haiku↔Fable 5 swap can refresh just that card.
 async function runSingleClaude(ticker, useFableModel) {
-  const modelId = useFableModel ? 'claude-fable-5' : 'claude-haiku-4-5-20251001';
+  const modelId = useFableModel ? 'claude-fable-5' : CLAUDE_HAIKU_MODEL;
   let searchBlock = '';
   try {
     searchBlock = await braveSearch(`${ticker} stock news today`);
@@ -1059,7 +1066,7 @@ app.post('/api/analyze-model', async (req, res) => {
       bullScore1W: result.bullScore1W ?? null,
       bullScore1M: result.bullScore1M ?? null,
       bullScore1Y: result.bullScore1Y ?? null,
-      claudeModel: useFableModel ? 'Claude Fable 5' : 'Claude Haiku 4.5',
+      claudeModel: useFableModel ? 'Claude Fable 5' : 'Claude Haiku 5.5',
       fableUsed: useFableModel,
       fableRemaining,
       fableLimit,
@@ -1106,8 +1113,8 @@ app.post('/api/analyze', async (req, res) => {
   // user's (1–5/day) Fable uses. Once the cap is reached we silently fall back to Haiku.
   const useFableModel = wantsFable && fableUsedToday < fableLimit;
   let fableRemaining = Math.max(0, fableLimit - fableUsedToday);
-  const claudeModelId = useFableModel ? 'claude-fable-5' : 'claude-haiku-4-5-20251001';
-  let claudeModelName = useFableModel ? 'Claude Fable 5' : 'Claude Haiku 4.5';
+  const claudeModelId = useFableModel ? 'claude-fable-5' : CLAUDE_HAIKU_MODEL;
+  let claudeModelName = useFableModel ? 'Claude Fable 5' : 'Claude Haiku 5.5';
 
   const systemPrompt = SYSTEM_PROMPT;
 
@@ -1178,12 +1185,14 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       return typeof errMsg === 'string' && errMsg.toLowerCase().includes('high demand');
     }
 
-    let data = await geminiRequest('gemini-3.1-flash-lite', true);
+    let servedBy = 'gemini-3.1-flash-lite';
+    let data = await geminiRequest(servedBy, true);
 
     if (data.error) {
       if (isHighDemandError(data.error.message)) {
-        console.warn(`[Gemini] flash-lite overloaded for ${ticker}, falling back to gemini-3-flash-preview...`);
-        data = await geminiRequest('gemini-3-flash-preview', true);
+        console.warn(`[Gemini] flash-lite overloaded for ${ticker}, falling back to gemini-3.6-flash...`);
+        servedBy = 'gemini-3.6-flash';
+        data = await geminiRequest(servedBy, true);
         if (data.error) {
           console.error(`[Gemini] Fallback model also errored for ${ticker}:`, data.error.message);
           throw new Error(data.error.message);
@@ -1193,6 +1202,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
         throw new Error(data.error.message);
       }
     }
+    console.log(`[Gemini] ${ticker} served by ${servedBy}`);
 
     let text = extractText(data);
 
@@ -1350,7 +1360,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
         fableRemaining = inc.remaining;
       } else {
         fableUsed = false;
-        claudeModelName = 'Claude Haiku 4.5';
+        claudeModelName = 'Claude Haiku 5.5';
       }
     }
 
