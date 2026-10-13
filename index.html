@@ -201,7 +201,9 @@
   .cnote { font-size:12.5px; color:#8b96ad; line-height:1.5; }
   .cline1 { font-size:12px; color:#5e6a85; margin-bottom:4px; }
   .cline2 { font-size:11.5px; color:#8b96ad; }
-  .cpct { font-weight:600; color:#8b96ad; white-space:nowrap; }
+  .cpct { font-size:18px; font-weight:700; color:#8b96ad; white-space:nowrap; }
+  .cpct.up { color:#00c896; }
+  .cpct.down { color:#ff4757; }
   .clogo { width:22px; height:22px; border-radius:5px; object-fit:contain; background:#fff; flex-shrink:0; }
   .cards-footer { max-width:760px; margin:18px auto 0; text-align:center; font-size:11px; color:#5e6a85; line-height:1.6; }
 
@@ -861,7 +863,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#e3b341":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 4.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false,googleLoading:false,modelRetry:{},modelRetryMsg:{}};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 5.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false,googleLoading:false,modelRetry:{},modelRetryMsg:{}};
 
 // tier 'loading' = possibly signed in, plan not read yet. Shown as a neutral placeholder,
 // never as Free (no upgrade prompts / limits). isPaid() is false for it, so nothing unlocks.
@@ -887,7 +889,7 @@ function fableRemaining(){ return state.fableRemaining == null ? fableLimit() : 
 // Each slot maps to a real API model; only the Claude slot currently has a
 // second, swappable option (Fable 5). `proOnly` slots are locked on Free.
 const MODEL_META = {
-  'Claude':     { active: 'Claude Haiku 4.5',        provider: 'Anthropic',  desc: 'Balanced equity reasoning with live web context.',   proOnly: false },
+  'Claude':     { active: 'Claude Haiku 5.5',        provider: 'Anthropic',  desc: 'Balanced equity reasoning with live web context.',   proOnly: false },
   'GPT-4o':     { active: 'GPT-5 mini',              provider: 'OpenAI',     desc: 'Fast general-purpose analysis with live web context.', proOnly: false },
   'Gemini':     { active: 'Gemini 3.1 Flash Lite',   provider: 'Google',     desc: 'Google Search–grounded market data and news.',        proOnly: false },
   'Perplexity': { active: 'Perplexity Sonar',        provider: 'Perplexity', desc: 'Web-native research model.',                          proOnly: true  },
@@ -901,7 +903,7 @@ function chipLabel(name){ return name === 'GPT-4o' ? 'GPT' : name; }
 // pulled DYNAMICALLY from the backend's returned `apiModel`, so a future model swap updates
 // the hover automatically with no further frontend change.
 function activeModelName(name){
-  if (name === 'Claude') return state.claudeModelName || 'Claude Haiku 4.5';
+  if (name === 'Claude') return state.claudeModelName || 'Claude Haiku 5.5';
   // GPT + Grok return the exact model id as `apiModel`; show it dynamically so a backend model
   // swap updates the hover with no further frontend change. Others fall back to MODEL_META.
   const ai = state.aiData[state.ticker];
@@ -915,13 +917,13 @@ function modelTipTitle(name){ return name === 'Claude' ? 'Claude model' : `${chi
 function modelTipText(name){
   const meta = MODEL_META[name] || {};
   if (name === 'Claude') {
-    const active = state.claudeModelName || 'Claude Haiku 4.5';
+    const active = state.claudeModelName || 'Claude Haiku 5.5';
     if (state.claudeError && !state.claudeReanalyzing) return `${state.claudeError}\nTap to choose a model and retry.`;
     if (!isPaid()) return `Active: ${active}\nUpgrade to unlock Claude Fable 5.`;
     const lim = fableLimit(), rem = fableRemaining(), used = Math.max(0, lim - rem), fableOn = state.useFable;
     const cappedNote = (fableOn && rem <= 0) ? `\nToday's Fable 5 uses are used up — next analysis uses Haiku.` : '';
     return `${fableOn ? '✓' : '○'} Claude Fable 5 — ${used} of ${lim} used today`
-      + `\n${fableOn ? '○' : '✓'} Claude Haiku 4.5 (default)` + cappedNote + `\n\nTap to choose.`;
+      + `\n${fableOn ? '○' : '✓'} Claude Haiku 5.5 (default)` + cappedNote + `\n\nTap to choose.`;
   }
   const locked = meta.proOnly && !isPaid();
   return `Active: ${activeModelName(name)}\n${meta.desc || ''}` + (locked ? `\nUnlock with Pro.` : '');
@@ -994,7 +996,7 @@ async function runClaudeSwitch(useFableModel){
       // Gold reflects ONLY what the backend actually did — if it fell back to Haiku
       // (cap hit mid-request) fableUsed is false and gold stays off.
       state.useFable = !!json.fableUsed;
-      state.claudeModelName = json.claudeModel || (json.fableUsed ? 'Claude Fable 5' : 'Claude Haiku 4.5');
+      state.claudeModelName = json.claudeModel || (json.fableUsed ? 'Claude Fable 5' : 'Claude Haiku 5.5');
       state.fableRemaining = json.fableRemaining ?? state.fableRemaining;
       state.fableLimit = json.fableLimit ?? state.fableLimit;
       // This endpoint now consumes a daily analysis (server-side cap) — keep the counter in sync.
@@ -1056,7 +1058,7 @@ function claudePopupRows(){
   const haikuActive = !fableActive;
   const capped = paid && rem <= 0 && !fableActive; // no uses left and not currently on Fable
   const goldTag = `<span class="pro-tag" style="font-size:8px;padding:2px 6px">PREMIUM</span>`;
-  const haiku = modelOption({ title:'Claude Haiku 4.5', sub:'Default · fast, always available', active:haikuActive, onclick:'selectClaudeModel(false)' });
+  const haiku = modelOption({ title:'Claude Haiku 5.5', sub:'Default · fast, always available', active:haikuActive, onclick:'selectClaudeModel(false)' });
   let fableSub;
   if (!paid) fableSub = `Anthropic's most powerful reasoning model — upgrade to unlock`;
   else if (capped) fableSub = `${used} of ${lim} Fable 5 uses today — resets tomorrow`;
@@ -1165,8 +1167,9 @@ function spanMonths(fromIso, toIso){
 }
 
 // Renders the example-analysis cards from the static RECENT_CONSENSUS array. The percent is
-// computed at render time from start/end price, shown to one decimal in a neutral muted color
-// (never green/red). The period label is computed from analyzedOn/endOn (see spanMonths).
+// computed at render time from start/end price, shown to one decimal on its own line: green
+// when positive, red when negative, neutral muted at exactly 0.0. The period label is
+// computed from analyzedOn/endOn (see spanMonths).
 function recentConsensusCards(){
   return RECENT_CONSENSUS.map(r=>{
     const verdicts = Array.isArray(r.verdicts) ? r.verdicts : [];
@@ -1174,6 +1177,8 @@ function recentConsensusCards(){
     const pct = (r.endPrice - r.startPrice) / r.startPrice * 100;
     const up = pct >= 0;
     const pctDisp = `${up ? '▲' : '▼'} ${up ? '+' : ''}${pct.toFixed(1)}%`;
+    const shown = Number(pct.toFixed(1));
+    const pctCls = shown > 0 ? 'up' : shown < 0 ? 'down' : 'flat';
     return `<div class="ccard">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <img class="clogo" src="https://assets.parqet.com/logos/symbol/${encodeURIComponent(r.ticker)}" alt="" loading="lazy"
@@ -1184,7 +1189,8 @@ function recentConsensusCards(){
       <div class="cvotes tnum">${voteCount(verdicts)}</div>
       <div class="splitbar">${segs}</div>
       <div class="cline1 tnum">Analyzed ${fmtMonthDay(r.analyzedOn)}</div>
-      <div class="cline2 tnum">${fmtMonthDay(r.analyzedOn)} → ${fmtMonthDay(r.endOn)} · ${spanMonths(r.analyzedOn, r.endOn)} <span class="cpct">${pctDisp}</span></div>
+      <div class="cline2 tnum">${fmtMonthDay(r.analyzedOn)} → ${fmtMonthDay(r.endOn)} · ${spanMonths(r.analyzedOn, r.endOn)}</div>
+      <div class="cpct tnum ${pctCls}">${pctDisp}</div>
     </div>`;
   }).join('');
 }
@@ -1363,7 +1369,7 @@ async function analyzeStock() {
     if (aiJson && !aiJson.error) {
       resolvePlan(aiJson.tier || 'free');
       state.usageRemaining = aiJson.usageRemaining ?? state.usageRemaining;
-      state.claudeModelName = aiJson.claudeModel || 'Claude Haiku 4.5';
+      state.claudeModelName = aiJson.claudeModel || 'Claude Haiku 5.5';
       // Gold reflects what the backend actually used for the Claude slot this run.
       if (aiJson.fableUsed !== undefined) state.useFable = !!aiJson.fableUsed;
       state.fableRemaining = aiJson.fableRemaining ?? state.fableRemaining;
