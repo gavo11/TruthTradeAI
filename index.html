@@ -840,7 +840,7 @@ function tagStyle(tag){return{EARNINGS:{c:"#3d85ff",bg:"rgba(61,133,255,.15)"},N
 function getConsensus(base, riskProfile, riskTolerance) {
   const adj = getRiskAdjustment(riskProfile, riskTolerance);
   const score = Math.min(99, Math.max(1, base + adj));
-  const label = score >= 65 ? "CONFIDENT" : score >= 45 ? "NEUTRAL" : "CAUTIOUS";
+  const label = score >= 55 ? "BULLISH" : score >= 45 ? "NEUTRAL" : "BEARISH"; // same cut points as getVerdict
   return {score, bull: score, bear: 100-score, label, adj};
 }
 function getVerdict(score) {
@@ -890,7 +890,7 @@ function fableRemaining(){ return state.fableRemaining == null ? fableLimit() : 
 // second, swappable option (Fable 5). `proOnly` slots are locked on Free.
 const MODEL_META = {
   'Claude':     { active: 'Claude Haiku 5.5',        provider: 'Anthropic',  desc: 'Balanced equity reasoning with live web context.',   proOnly: false },
-  'GPT-4o':     { active: 'GPT-5 mini',              provider: 'OpenAI',     desc: 'Fast general-purpose analysis with live web context.', proOnly: false },
+  'GPT-4o':     { active: 'GPT-5.6 Luna',              provider: 'OpenAI',     desc: 'Fast general-purpose analysis with live web context.', proOnly: false },
   'Gemini':     { active: 'Gemini 3.1 Flash Lite',   provider: 'Google',     desc: 'Google Search–grounded market data and news.',        proOnly: false },
   'Perplexity': { active: 'Perplexity Sonar',        provider: 'Perplexity', desc: 'Web-native research model.',                          proOnly: true  },
   'Grok':       { active: 'Grok 4.3',                provider: 'xAI',        desc: 'X / real-time-aware market analysis.',                proOnly: true  }
@@ -1244,7 +1244,7 @@ function donutSVG(bull,score,label,loading){
   </div>`;
   }
   const bullDash=(bull/100)*C,gap=C*0.015;
-  const lc=label==="CONFIDENT"?"#00c896":label==="CAUTIOUS"?"#ff4757":"#94a3b8";
+  const lc=label==="BULLISH"?"#00c896":label==="BEARISH"?"#ff4757":"#94a3b8";
   return `<svg width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">
     <defs>
       <linearGradient id="dgBull" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16e0a3"/><stop offset="1" stop-color="#00b487"/></linearGradient>
@@ -1637,7 +1637,7 @@ function render(){
       <div class="card" style="padding:28px 24px;text-align:center;margin-bottom:12px">
         <div style="display:flex;align-items:center;justify-content:center;margin-bottom:18px">
           <p class="eyebrow">AI Consensus</p>
-          ${infoBtn("AI Consensus", "This score is calculated by simultaneously querying multiple AI models — Claude, GPT-4o, Gemini, Perplexity, and Grok — and synthesizing their individual assessments into one combined verdict. Green represents the percentage of models that are bullish on the stock. Red represents bearish. The label (Confident, Neutral, or Cautious) reflects how strong and aligned the overall consensus is. Your risk tolerance setting also adjusts this score based on the stock's risk profile.")}
+          ${infoBtn("AI Consensus", "This score is calculated by simultaneously querying multiple AI models — Claude, GPT, Gemini, Perplexity, and Grok (Perplexity and Grok on paid plans) — and synthesizing their individual assessments into one combined verdict. Green represents the percentage of models that are bullish on the stock. Red represents bearish. The label under the ring (Bullish, Neutral, or Bearish) shows which way the combined score leans. Your risk tolerance setting also adjusts this score based on the stock's risk profile.")}
         </div>
         <div style="display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;margin-bottom:16px">
           ${state.loading
@@ -1730,7 +1730,7 @@ function render(){
               if (o.proOnly && !isPaid()) {
                 return `<div class="pro-panel" onclick="showPricingModal()" style="cursor:pointer;display:flex;align-items:center;gap:9px">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#ffd700">${o.name.toUpperCase()}</span>
+                  <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#ffd700">${chipLabel(o.name).toUpperCase()}</span>
                   <span style="font-size:11.5px;color:rgba(255,255,255,.5);margin-left:auto">Unlock with Pro</span>
                 </div>`;
               }
@@ -1738,23 +1738,23 @@ function render(){
               if (state.modelRetry[o.name] === 'retrying') {
                 return `<div class="pro-panel">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-                    <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#5a9bff">${o.name.toUpperCase()}</span>
+                    <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#5a9bff">${chipLabel(o.name).toUpperCase()}</span>
                     <span style="color:rgba(255,255,255,.25)">·</span>
                     <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:#5a9bff">RUNNING…</span>
                   </div>
-                  <div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:11.5px;color:rgba(255,255,255,.6)">Fetching ${o.name}'s analysis…</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:11.5px;color:rgba(255,255,255,.6)">Fetching ${chipLabel(o.name)}'s analysis…</span></div>
                 </div>`;
               }
               // Failed after both retries: clear failed state with a real reason + manual retry.
               if (state.modelRetry[o.name] === 'failed') {
                 return `<div class="pro-panel" style="--accent:#ff4757;border-color:rgba(255,71,87,.4)">
                   <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-                    <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#ff4757">${o.name.toUpperCase()}</span>
+                    <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#ff4757">${chipLabel(o.name).toUpperCase()}</span>
                     <span style="color:rgba(255,255,255,.25)">·</span>
                     <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:#ff4757">DIDN'T RESPOND</span>
                   </div>
                   <p style="font-size:11.5px;color:#ff8c42;line-height:1.7;margin-bottom:11px">${state.modelRetryMsg[o.name] ? escHtml(state.modelRetryMsg[o.name]) : "This model didn't respond. Could be rate limits, an outage, or a model version issue."}</p>
-                  ${state.modelRetryMsg[o.name] ? '' : `<button onclick="manualRetryModel('${o.name}')" class="nav-btn" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:700;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.14);cursor:pointer;display:inline-flex;align-items:center;gap:6px">↻ Retry ${o.name}</button>`}
+                  ${state.modelRetryMsg[o.name] ? '' : `<button onclick="manualRetryModel('${o.name}')" class="nav-btn" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:700;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.14);cursor:pointer;display:inline-flex;align-items:center;gap:6px">↻ Retry ${chipLabel(o.name)}</button>`}
                 </div>`;
               }
               const m = models.find(x => x.model===o.name && !x.error && x.reasoning);
@@ -1763,13 +1763,13 @@ function render(){
               if (!m && !claudeErr && !busy) return '';
               const isClaudeFable = o.name === 'Claude' && isPaid() && state.useFable && !claudeErr;
               const accent = claudeErr ? '#ff4757' : isClaudeFable ? '#ffd700' : '#5a9bff';
-              const label = claudeErr ? 'ERROR' : o.name === 'Claude' ? (isClaudeFable ? 'FABLE 5 · PREMIUM' : 'HAIKU 4.5') : 'MODEL ANALYSIS';
+              const label = claudeErr ? 'ERROR' : o.name === 'Claude' ? (isClaudeFable ? 'FABLE 5' : 'HAIKU 5.5') : 'MODEL ANALYSIS';
               const labelColor = claudeErr ? '#ff4757' : '#ffd700';
               const scoreColor = m && m.bullScore>=60?'#00c896':m && m.bullScore>=40?'#e3b341':'#ff4757';
               const goldPanel = isClaudeFable ? '--accent:#ffd700;border-color:rgba(255,215,0,.4);background:linear-gradient(180deg,rgba(255,215,0,.07),#0b1224);box-shadow:0 0 0 1px rgba(255,215,0,.12),0 8px 24px rgba(0,0,0,.4)' : claudeErr ? '--accent:#ff4757;border-color:rgba(255,71,87,.4)' : '';
               return `<div class="pro-panel" style="${goldPanel}">
               <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-                <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:${accent}">${o.name.toUpperCase()}</span>
+                <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:${accent}">${chipLabel(o.name).toUpperCase()}</span>
                 <span style="color:rgba(255,255,255,.25)">·</span>
                 <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:${labelColor}">${label}</span>
                 ${busy || claudeErr ? '' : `<span class="tnum" style="margin-left:auto;font-size:11.5px;font-weight:800;color:${scoreColor}">${m.bullScore}%</span>`}
@@ -2215,7 +2215,7 @@ function render(){
           <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$0</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
           <div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">${state.tier==='free'?'Your plan':'Free'}</div>
           <div style="display:flex;flex-direction:column;gap:9px">
-            ${["2 analyses / day","3 AI models (Gemini, GPT-4o, Claude)","Individual model analysis for all 3","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
+            ${["2 analyses / day","3 AI models (Gemini, GPT, Claude)","Individual model analysis for all 3","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
           </div>
         </div>
         <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:20px 18px;position:relative">
