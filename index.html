@@ -4,9 +4,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>QuantCall AI — 5 AI quants. One call.</title>
-<meta name="description" content="QuantCall AI runs any stock through five AI models at once and synthesizes one consensus call — bull case, bear case, sentiment, catalysts, and risks in one place.">
-<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<title>QuantCall AI – Free AI Stock Analysis From 5 AI Models</title>
+<link rel="canonical" href="https://www.quantcallai.com/">
+<meta name="theme-color" content="#070b16">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="QuantCall AI">
+<meta property="og:url" content="https://www.quantcallai.com/">
+<meta property="og:title" content="QuantCall AI – Free AI Stock Analysis From 5 AI Models">
+<meta property="og:description" content="Run any stock through Claude, GPT, Gemini, Perplexity and Grok at once. See where the models agree, where they split, and one combined verdict. Free to try.">
+<meta property="og:image" content="https://www.quantcallai.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="QuantCall AI – Free AI Stock Analysis From 5 AI Models">
+<meta name="twitter:description" content="Run any stock through Claude, GPT, Gemini, Perplexity and Grok at once. See where the models agree, where they split, and one combined verdict. Free to try.">
+<meta name="twitter:image" content="https://www.quantcallai.com/og-image.png">
+<link rel="apple-touch-icon" href="/assets/logo-512.png">
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "name": "QuantCall AI", "url": "https://www.quantcallai.com/", "logo": "https://www.quantcallai.com/assets/logo-512.png", "email": "support@quantcallai.com", "sameAs": ["https://www.instagram.com/quantcallai/"]}, {"@context": "https://schema.org", "@type": "WebSite", "name": "QuantCall AI", "url": "https://www.quantcallai.com/"}, {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "QuantCall AI", "applicationCategory": "FinanceApplication", "operatingSystem": "Web", "url": "https://www.quantcallai.com/", "description": "QuantCall AI runs a stock ticker through several AI models side by side (Claude, GPT and Gemini on the free plan; Perplexity and Grok on paid plans) and shows each model's verdict and reasoning, a consensus score, and where the models disagree. For research and education only, not financial advice.", "offers": [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Pro", "price": "8.99", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Premium", "price": "19.99", "priceCurrency": "USD"}]}]</script>
+<meta name="description" content="Run any stock through Claude, GPT, Gemini, Perplexity and Grok at once. See where the models agree, where they split, and one combined verdict. Free to try.">
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
   :root {
@@ -240,7 +256,20 @@
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app"><main style="max-width:720px;margin:0 auto;padding:72px 20px;text-align:center;font-family:'Space Grotesk',system-ui,sans-serif;color:#e8edf7">
+  <p style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;color:#00c896;text-transform:uppercase">Five AI models on one screen</p>
+  <h1 style="font-size:40px;line-height:1.1;margin:14px 0">Five models. One verdict.<br><span style="color:#00c896">Smarter stock screening.</span></h1>
+  <p style="color:#a8b3c9;font-size:17px;line-height:1.6">One model has blind spots. QuantCall AI runs any US-listed ticker through Claude, GPT, Gemini, Perplexity and Grok at once, then shows each model's verdict and reasoning, a consensus score, and exactly where the models agree and where they split.</p>
+  <h2 style="font-size:20px;margin-top:36px">How it works</h2>
+  <ol style="text-align:left;color:#a8b3c9;line-height:1.8;display:inline-block">
+    <li>Enter a ticker, like NVDA or AAPL.</li>
+    <li>Each AI model researches it with live web search.</li>
+    <li>See every model's take, the combined verdict, and the disagreements.</li>
+  </ol>
+  <h2 style="font-size:20px;margin-top:28px">Plans</h2>
+  <p style="color:#a8b3c9;line-height:1.7">Free: 2 analyses a day with Claude, GPT and Gemini. Pro ($8.99/mo) and Premium ($19.99/mo) add Perplexity, Grok, X sentiment and more daily analyses.</p>
+  <p style="color:#5e6a85;font-size:13px;margin-top:28px">For research and education only. Not financial advice. Questions: support@quantcallai.com</p>
+</main></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 // ── Supabase Auth ─────────────────────────────────────────────
@@ -260,12 +289,12 @@ function showPricingModal() {
 function reportBug() {
   const tickerLine = state.ticker ? `Ticker: ${state.ticker}` : 'Ticker: (none loaded)';
   const accountLine = `Account: ${currentUser ? `${state.tier} (signed in)` : 'Not signed in'}`;
-  const textToCopy = `truetradeaisupport@gmail.com\n\nPlease describe the issue:\n\n\n---\nContext (edit or delete as needed):\n${tickerLine}\n${accountLine}`;
+  const textToCopy = `support@quantcallai.com\n\nPlease describe the issue:\n\n\n---\nContext (edit or delete as needed):\n${tickerLine}\n${accountLine}`;
 
   navigator.clipboard.writeText(textToCopy).then(() => {
     showCopyToast('Email + bug report template copied! Paste into your email app.');
   }).catch(() => {
-    showCopyToast('Could not copy automatically. Email us at truetradeaisupport@gmail.com');
+    showCopyToast('Could not copy automatically. Email us at support@quantcallai.com');
   });
 }
 

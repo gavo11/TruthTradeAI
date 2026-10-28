@@ -1,0 +1,18 @@
+# QuantCall AI
+
+> QuantCall AI is a web app that runs a stock ticker through several AI models at once and shows where they agree and where they disagree.
+
+QuantCall AI sends any US-listed ticker to multiple AI models side by side: Claude, GPT and Gemini on the free plan, plus Perplexity and Grok on paid plans. Each model researches the stock with live web search. The results page shows each model's verdict and reasoning, a combined consensus score, and the points where the models split. It is a research and education tool, not financial advice, and it does not place trades or connect to brokerages.
+
+## Plans
+- Free: 2 analyses per day, 3 models (Claude, GPT, Gemini), 2 watchlist slots
+- Pro: $8.99/month, 10 analyses per day, adds Perplexity, Grok and X sentiment
+- Premium: $19.99/month, 20 analyses per day, unlimited watchlist
+
+## Links
+- [Home](https://www.quantcallai.com/)
+- [Pricing](https://www.quantcallai.com/pricing.html)
+- [About](https://www.quantcallai.com/about.html)
+- [Contact](https://www.quantcallai.com/contact.html)
+
+Contact: support@quantcallai.com
