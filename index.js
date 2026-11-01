@@ -7,6 +7,20 @@ const port = process.env.PORT || 3000;
 
 const SUPABASE_URL = 'https://ncqrxtczvcpjocurlwzb.supabase.co';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// ── SECURITY: ticker validation ───────────────────────────────────────────────
+// Every endpoint that takes a ticker runs it through this. The ticker is pasted into
+// AI prompts and search/price URLs, so free text here would let someone use our paid
+// models as a free chatbot (prompt injection) or inject into the URLs. Real tickers
+// are 1–12 chars of letters/digits plus . - = and an optional leading ^ (indexes).
+function cleanTicker(raw) {
+  const t = String(raw ?? '').trim().toUpperCase();
+  return /^\^?[A-Z0-9][A-Z0-9.\-=]{0,11}$/.test(t) ? t : null;
+}
+
+// Allowed return domains for Stripe checkout (the client sends `origin`; anything else
+// falls back to the main site so checkout can't be used to bounce users to other sites).
+const ALLOWED_ORIGINS = ['https://www.quantcallai.com', 'https://quantcallai.com'];
+
 const TIER_ANALYSIS_LIMIT = { free: 2, pro: 10, premium: 20 };
 const TIER_XSENT_LIMIT = { free: 0, pro: 2, premium: 4 };
 const TIER_SAVED_LIMIT = { free: 2, pro: 10, premium: Infinity };
@@ -128,9 +142,9 @@ app.get('/api/saved-analyses', async (req, res) => {
 app.post('/api/save-analysis', async (req, res) => {
   const userId = await getUserId(req.headers['authorization']);
   if (!userId) return res.status(401).json({ error: 'not_signed_in' });
-  const { ticker, analysis_data } = req.body || {};
-  if (!ticker || !analysis_data) return res.status(400).json({ error: 'ticker_and_data_required' });
-  const tickerUp = String(ticker).toUpperCase();
+  const { analysis_data } = req.body || {};
+  const tickerUp = cleanTicker(req.body?.ticker);
+  if (!tickerUp || !analysis_data) return res.status(400).json({ error: 'ticker_and_data_required' });
   try {
     const tier = await getUserTier(req.headers['authorization']);
     const savedLimit = TIER_SAVED_LIMIT[tier];
@@ -168,7 +182,7 @@ app.post('/api/save-analysis', async (req, res) => {
 app.delete('/api/saved-analysis/:ticker', async (req, res) => {
   const userId = await getUserId(req.headers['authorization']);
   if (!userId) return res.status(401).json({ error: 'not_signed_in' });
-  const tickerUp = String(req.params.ticker || '').toUpperCase();
+  const tickerUp = cleanTicker(req.params.ticker);
   if (!tickerUp) return res.status(400).json({ error: 'ticker_required' });
   try {
     const r = await fetch(
@@ -513,16 +527,45 @@ function tierFromSubscription(subscription) {
 // ── Get a usable identifier for usage tracking: userId if signed in, else IP ──
 function getRequestIdentifier(req, userId) {
   if (userId) return `user:${userId}`;
-  // x-forwarded-for can contain a list "client, proxy1, proxy2" — take the first
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = forwarded ? forwarded.split(',')[0].trim() : req.socket?.remoteAddress || 'unknown';
-  return `ip:${ip}`;
+  // SECURITY: never use the FIRST x-forwarded-for entry — Render appends to whatever the
+  // client sends, so anyone could put a random IP there and get unlimited free analyses.
+  // True-Client-IP / CF-Connecting-IP are set by Cloudflare (in front of Render) and
+  // can't be faked by the client.
+  const ip = req.headers['true-client-ip'] || req.headers['cf-connecting-ip'] || req.socket?.remoteAddress || 'unknown';
+  return `ip:${String(ip).trim()}`;
 }
 
 // ── Check today's usage count for an identifier and increment if allowed ──
 // Returns { allowed: boolean, remaining: number }
 async function checkAndIncrementUsage(identifier, limit) {
   const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" in UTC
+
+  // SECURITY: check-and-add in ONE database step (increment_usage_if_below). The old
+  // read-then-write below let several requests fired at the same moment all read the
+  // same count and all get through, blowing past the daily cap. The old path is kept
+  // only as a fallback if the database function is ever missing.
+  try {
+    const rpcRes = await fetch(`${SUPABASE_URL}/rest/v1/rpc/increment_usage_if_below`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ p_identifier: identifier, p_date: today, p_limit: limit })
+    });
+    if (rpcRes.ok) {
+      const newCount = await rpcRes.json();
+      if (typeof newCount === 'number') {
+        if (newCount < 0) return { allowed: false, remaining: 0 };
+        return { allowed: true, remaining: Math.max(0, limit - newCount) };
+      }
+    } else {
+      console.error('[Usage] increment_usage_if_below failed — using fallback:', (await rpcRes.text()).slice(0, 200));
+    }
+  } catch (e) {
+    console.error('[Usage] increment_usage_if_below error — using fallback:', e.message);
+  }
 
   try {
     // Read current count for today
@@ -646,16 +689,17 @@ app.post('/api/create-checkout-session', async (req, res) => {
     // Primary domain is now quantcallai.com. The real redirect URLs are built from the
     // request `origin` below (so a user on either live domain returns to that same domain);
     // this fallback only applies when no valid origin is sent.
-    const fallback = 'https://quantcallai.com';
+    const fallback = 'https://www.quantcallai.com';
     let baseUrl = fallback;
     if (origin) {
       try {
         const parsed = new URL(origin);
         const candidate = parsed.origin;
-        if (candidate && candidate !== 'null' && (candidate.startsWith('https://') || candidate.startsWith('http://'))) {
+        // SECURITY: only send users back to our own site after checkout.
+        if (ALLOWED_ORIGINS.includes(candidate)) {
           baseUrl = candidate;
         } else {
-          console.warn(`[Checkout Session] Non-HTTP origin "${candidate}" — using fallback`);
+          console.warn(`[Checkout Session] Origin "${candidate}" not allowed — using fallback`);
         }
       } catch {
         console.warn(`[Checkout Session] Invalid origin received: "${origin}" — using fallback`);
@@ -744,7 +788,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
 
 // POST /api/x-sentiment — gated, daily-capped feature (Free 0 / Pro 2 / Premium 4)
 app.post('/api/x-sentiment', async (req, res) => {
-  const { ticker } = req.body;
+  const ticker = cleanTicker(req.body?.ticker);
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
   const tier = await getUserTier(req.headers['authorization']);
   const userId = await getUserId(req.headers['authorization']);
@@ -938,7 +982,8 @@ const RETRYABLE_MODELS = ['Gemini', 'GPT-4o', 'Claude', 'Perplexity', 'Grok'];
 const PAID_ONLY_MODELS = ['Perplexity', 'Grok'];
 
 app.post('/api/retry-model', async (req, res) => {
-  const { ticker, model } = req.body || {};
+  const { model } = req.body || {};
+  const ticker = cleanTicker(req.body?.ticker);
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
   if (!RETRYABLE_MODELS.includes(model)) return res.status(400).json({ error: 'unsupported_model' });
   const tier = await getUserTier(req.headers['authorization']);
@@ -1016,7 +1061,8 @@ async function runSingleClaude(ticker, useFableModel) {
 // Haiku fallback as /api/analyze, but does NOT touch the daily *analysis* cap —
 // this is a scoped single-model refresh, not a new full analysis.
 app.post('/api/analyze-model', async (req, res) => {
-  const { ticker, model } = req.body || {};
+  const { model } = req.body || {};
+  const ticker = cleanTicker(req.body?.ticker);
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
   if (model && model !== 'claude') return res.status(400).json({ error: 'unsupported_model' });
   const tier = await getUserTier(req.headers['authorization']);
@@ -1080,7 +1126,7 @@ app.post('/api/analyze-model', async (req, res) => {
 });
 
 app.post('/api/analyze', async (req, res) => {
-  const { ticker } = req.body;
+  const ticker = cleanTicker(req.body?.ticker);
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
 
   const tier = await getUserTier(req.headers['authorization']);
