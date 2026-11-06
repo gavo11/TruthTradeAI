@@ -14,5 +14,12 @@ QuantCall AI sends any US-listed ticker to multiple AI models side by side: Clau
 - [Pricing](https://www.quantcallai.com/pricing.html)
 - [About](https://www.quantcallai.com/about.html)
 - [Contact](https://www.quantcallai.com/contact.html)
+- [Blog](https://www.quantcallai.com/blog/)
+
+## Blog
+- [Multi-model AI stock analysis: what happens when you run 5 AIs on the same stock](https://www.quantcallai.com/blog/multi-model-ai-stock-analysis/): Multi-model AI stock analysis runs one stock through several AI models and compares where they agree and split. Real 2026 runs of Claude, GPT, Gemini, Perplexity and Grok, plus the tools that do it.
+- [Which AI is best for stock analysis? We ran ChatGPT, Claude, Gemini, Grok and Perplexity on the same stocks](https://www.quantcallai.com/blog/which-ai-is-best-for-stock-analysis/): Which AI is best for stock analysis? We ran Claude, GPT, Gemini, Perplexity and Grok on the same stocks in November 2026. Real scores, each model's habits, and why no single model wins.
+- [AI stock analysis prompts for ChatGPT, Claude, Gemini, Perplexity and Grok](https://www.quantcallai.com/blog/ai-stock-analysis-prompts/): Copy these 7 AI stock analysis prompts into ChatGPT, Claude, Gemini, Perplexity or Grok. Check data freshness, force a bear case, and find hidden risks.
+- [Best free AI stock analysis tools: 9 free plans compared](https://www.quantcallai.com/blog/best-free-ai-stock-analysis-tools/): Compare 9 free AI stock analysis tools: what each does, what the free plan includes, and what paid plans cost. Our own tool is clearly disclosed.
 
 Contact: support@quantcallai.com
