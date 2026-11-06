@@ -58,7 +58,7 @@ const FABLE_MAX_TOKENS = 2200;
 // one-line reason) instead of a reasoning paragraph. Same single call per model; adds
 // roughly 60-80 output tokens per model. Factor count per tier is a paid-plan perk:
 // tune these numbers here (more factors = slightly more output tokens per call).
-const TIER_FACTOR_COUNT = { free: 4, pro: 6, premium: 8 };
+const TIER_FACTOR_COUNT = { free: 4, pro: 8, premium: 12 };
 const FACTOR_DIRECTIONS = ['sb', 'b', 'n', 'br', 'sbr']; // strong bull, bull, neutral, bear, strong bear
 
 function factorCountFor(tier) {
@@ -1003,7 +1003,7 @@ async function runModelStandalone(modelName, ticker, tier, searchBlock, livePric
   if (modelName === 'Perplexity') {
     const res = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
-      body: JSON.stringify({ model: 'sonar', max_tokens: 900, messages: [
+      body: JSON.stringify({ model: 'sonar', max_tokens: 1200, messages: [
         { role: 'system', content: sys },
         { role: 'user', content: pc + proShort }
       ] })
@@ -1391,7 +1391,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
       body: JSON.stringify({
         model: 'sonar',
-        max_tokens: 900, // was 450; factors list needs headroom (only billed for tokens used)
+        max_tokens: 1200, // was 450; 12-factor premium list needs headroom (only billed for tokens used)
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + proShortPrompt }
