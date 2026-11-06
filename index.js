@@ -53,6 +53,66 @@ const HAIKU_FREE_MAX_TOKENS = 2000;  // free Haiku (proShortPrompt + reasoning)
 // headroom (~5.5x actual) while capping worst-case cost far below the old 8000.
 const FABLE_MAX_TOKENS = 2200;
 
+// ── Weighted factors (rework item 1) ───────────────────────────────────────
+// Each model returns a short list of the factors it weighed (name, direction, weight,
+// one-line reason) instead of a reasoning paragraph. Same single call per model; adds
+// roughly 60-80 output tokens per model. Factor count per tier is a paid-plan perk:
+// tune these numbers here (more factors = slightly more output tokens per call).
+const TIER_FACTOR_COUNT = { free: 4, pro: 6, premium: 8 };
+const FACTOR_DIRECTIONS = ['sb', 'b', 'n', 'br', 'sbr']; // strong bull, bull, neutral, bear, strong bear
+
+function factorCountFor(tier) {
+  return TIER_FACTOR_COUNT[tier] ?? TIER_FACTOR_COUNT.free;
+}
+
+// The JSON fields every model is asked for (shared so all 5 prompts stay identical).
+function factorFieldsSpec(tier) {
+  const n = factorCountFor(tier);
+  return `"summary": <ONE sentence, max 20 words: the single biggest reason for your bullScore, plain words, specific to this stock right now>,
+  "factors": <array of ${n} objects: the specific things that actually drove YOUR bullScore, MOST heavily weighted first. Each object has exactly these fields:
+    "f": <factor name, max 5 words, e.g. "Q3 data center revenue", "China export limits", "Valuation vs peers">,
+    "d": <direction, one of "sb" (strong bull), "b" (bull), "n" (neutral / cuts both ways), "br" (bear), "sbr" (strong bear)>,
+    "w": <integer weight; all ${n} weights must add up to 100; how much this factor moved your score>,
+    "r": <max 12 words, the concrete reason; name the event, number or date when you can>
+  Rules: be concrete and current (recent earnings, a specific news story, guidance, valuation vs peers, macro events, overall fundamentals as ONE factor). No generic filler like "strong brand". Weights must be consistent with your bullScore: a high bullScore means bullish factors carry most of the weight, a low one means bearish factors do. Include the strongest bear point even if you are bullish (and vice versa) unless it truly carried no weight.>`;
+}
+
+// Server-side cleanup so the UI never breaks on a sloppy model answer: whitelist the
+// direction, clamp/rescale weights to 100, trim text, cap the count, sort by weight.
+// Falls back gracefully: no valid factors -> factors: [] and the UI shows the summary.
+function sanitizeFactors(result, tier) {
+  if (!result || typeof result !== 'object' || result.error) return result;
+  const max = factorCountFor(tier);
+  const raw = Array.isArray(result.factors) ? result.factors : [];
+  let factors = raw
+    .filter(x => x && typeof x === 'object')
+    .map(x => ({
+      f: String(x.f ?? x.name ?? '').trim().slice(0, 40),
+      d: FACTOR_DIRECTIONS.includes(x.d) ? x.d : 'n',
+      w: Math.max(0, Number(x.w ?? x.weight) || 0),
+      r: String(x.r ?? x.reason ?? '').trim().slice(0, 110)
+    }))
+    .filter(x => x.f)
+    .slice(0, max);
+  const total = factors.reduce((a, x) => a + x.w, 0);
+  if (factors.length) {
+    if (total <= 0) factors.forEach(x => { x.w = 100 / factors.length; });
+    else factors.forEach(x => { x.w = (x.w / total) * 100; });
+    factors.sort((a, b) => b.w - a.w);
+    // Round to whole numbers that still add up to exactly 100 (largest-remainder).
+    const floors = factors.map(x => Math.floor(x.w));
+    let left = 100 - floors.reduce((a, b) => a + b, 0);
+    const order = factors.map((x, i) => [x.w - floors[i], i]).sort((a, b) => b[0] - a[0]);
+    for (let k = 0; k < left; k++) floors[order[k % order.length][1]]++;
+    factors.forEach((x, i) => { x.w = floors[i]; });
+  }
+  const summary = String(result.summary ?? '').trim().slice(0, 200) || null;
+  // Back-compat: the current UI reads `reasoning`. Keep the model's own reasoning if a
+  // model still sends one; otherwise show the one-line summary there.
+  const reasoning = result.reasoning || summary || null;
+  return { ...result, factors, summary, reasoning, factorLimit: max };
+}
+
 app.use(cors({ origin: '*', methods: ['GET', 'POST', 'DELETE', 'OPTIONS'], allowedHeaders: ['Content-Type', 'Authorization'] }));
 
 // ── Stripe Webhook — MUST come before express.json(), needs raw body for signature verification ──
@@ -818,7 +878,7 @@ app.post('/api/x-sentiment', async (req, res) => {
 // use the exact same prompt (no divergence).
 const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier investment bank with 20 years of experience. You provide rigorous, data-driven stock analysis. You always search for the most recent news, earnings reports, analyst upgrades/downgrades, and sector developments before forming your view. Your analysis is balanced — you identify both genuine opportunities and real risks. You never give generic responses. Every insight must be specific to this company right now.`;
 
-function buildProShortPrompt(ticker) {
+function buildProShortPrompt(ticker, tier) {
   return `Analyze ${ticker} as a stock investment based on current market conditions, recent news, and fundamentals. Consider the current broader market environment and any recent significant price moves.
 
 Respond ONLY with a valid JSON object — no markdown, no explanation, no backticks. Use exactly these fields:
@@ -830,14 +890,14 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   "bullScore1W": <number 0-100, bull conviction for next 7 days ONLY — weight recent price momentum, current market sentiment, and short-term macro events. Be skeptical if the stock has run hard recently>,
   "bullScore1M": <number 0-100, bull conviction for next 30 days>,
   "bullScore1Y": <number 0-100, bull conviction for next 12 months — weight fundamentals and long-term outlook>,
-  "reasoning": <3-4 sentences explaining what you weighted most and why you landed where you did. Write for a smart retail investor with no finance jargon — explain any technical term in plain words the moment you use it. Be specific to this stock right now, not generic boilerplate.>
+  ${factorFieldsSpec(tier)}
 }`;
 }
 
 // Gemini's detailed (search-grounded) prompt — the primary source of the top-level
 // fields (price, company, news, catalysts). Hoisted so /api/analyze and the single-model
 // retry path (runModelStandalone) share the exact same prompt.
-function buildGeminiPrompt(ticker) {
+function buildGeminiPrompt(ticker, tier) {
   return `Search the web for the latest information on ${ticker} and analyze it as a stock investment. Find the most current live market data available.
 
 Respond ONLY with a valid JSON object — no markdown, no explanation, no backticks. Use exactly these fields:
@@ -876,7 +936,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   "sectorSentimentScore": <number 0-100, same scale but evaluate the BROADER SECTOR independently — based on sector ETF momentum, recent sector-wide fund flows, and macro tailwinds/headwinds. Reflect the sector as a whole, not this individual stock. These two scores should often differ significantly>,
   "entrySignal": <one of: "Strong Entry", "Good Entry", "Decent Entry", "Wait", "Avoid" — be critical and honest. Consider: has the stock run hard recently? Is the sector overbought? Are there near-term macro risks? Default toward "Wait" if the stock is up 15%+ in the last 30 days without a clear near-term catalyst. "Strong Entry" should be rare>,
   "sentimentAnalysis": <2-3 sentences explaining the stock and sector sentiment positions and what they mean for entry timing>,
-  "reasoning": <2-3 sentences on what YOU weighted most in your analysis and why you landed at your verdict — be specific to this stock right now, not generic>
+  ${factorFieldsSpec(tier)}
 }`;
 }
 
@@ -887,10 +947,10 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
 async function runModelStandalone(modelName, ticker, tier, searchBlock, livePrice) {
   const sys = SYSTEM_PROMPT;
   const pc = priceContext(ticker, livePrice);
-  const proShort = buildProShortPrompt(ticker);
+  const proShort = buildProShortPrompt(ticker, tier);
 
   if (modelName === 'Gemini') {
-    const geminiPrompt = buildGeminiPrompt(ticker);
+    const geminiPrompt = buildGeminiPrompt(ticker, tier);
     const geminiRequest = async (gm) => {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/${gm}:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -943,7 +1003,7 @@ async function runModelStandalone(modelName, ticker, tier, searchBlock, livePric
   if (modelName === 'Perplexity') {
     const res = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
-      body: JSON.stringify({ model: 'sonar', max_tokens: 450, messages: [
+      body: JSON.stringify({ model: 'sonar', max_tokens: 900, messages: [
         { role: 'system', content: sys },
         { role: 'user', content: pc + proShort }
       ] })
@@ -1016,7 +1076,7 @@ app.post('/api/retry-model', async (req, res) => {
   for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt++) {
     await sleep(RETRY_DELAYS_MS[attempt]);
     try {
-      const result = await runModelStandalone(model, T, tier, searchBlock, livePrice);
+      const result = sanitizeFactors(await runModelStandalone(model, T, tier, searchBlock, livePrice), tier);
       console.log(`[retry-model] ${model} ${T} succeeded on retry ${attempt + 1}/${RETRY_DELAYS_MS.length}`);
       return res.json({ ok: true, model, result });
     } catch (e) {
@@ -1031,7 +1091,7 @@ app.post('/api/retry-model', async (req, res) => {
 // Run ONLY the Claude slot for a ticker with a specific model. Mirrors the
 // callClaude() inside /api/analyze (Brave live search + detailed pro prompt),
 // standalone so a Haiku↔Fable 5 swap can refresh just that card.
-async function runSingleClaude(ticker, useFableModel) {
+async function runSingleClaude(ticker, useFableModel, tier) {
   const modelId = useFableModel ? 'claude-fable-5' : CLAUDE_HAIKU_MODEL;
   let searchBlock = '';
   try {
@@ -1050,7 +1110,7 @@ async function runSingleClaude(ticker, useFableModel) {
   const result = await callAnthropicMessages(
     modelId,
     SYSTEM_PROMPT,
-    priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, buildProShortPrompt(ticker)),
+    priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, buildProShortPrompt(ticker, tier)),
     'pro' // Fable/single-model refresh is paid-only; use the detailed token budget
   );
   return { ...result, model: 'Claude' };
@@ -1099,7 +1159,7 @@ app.post('/api/analyze-model', async (req, res) => {
   const useFableModel = wantsFable && fableUsedToday < fableLimit;
   let fableRemaining = Math.max(0, fableLimit - fableUsedToday);
   try {
-    const result = await runSingleClaude(String(ticker).toUpperCase(), useFableModel);
+    const result = sanitizeFactors(await runSingleClaude(String(ticker).toUpperCase(), useFableModel, tier), tier);
     if (useFableModel) {
       const inc = await incrementUsage(fableId, fableLimit); // consume only on success
       fableRemaining = inc.remaining;
@@ -1108,6 +1168,9 @@ app.post('/api/analyze-model', async (req, res) => {
       model: 'Claude',
       bullScore: result.bullScore ?? 50,
       reasoning: result.reasoning || null,
+      summary: result.summary || null,
+      factors: result.factors || [],
+      factorLimit: result.factorLimit ?? null,
       confidence: result.confidence ?? null,
       bullScore1W: result.bullScore1W ?? null,
       bullScore1M: result.bullScore1M ?? null,
@@ -1164,7 +1227,7 @@ app.post('/api/analyze', async (req, res) => {
 
   const systemPrompt = SYSTEM_PROMPT;
 
-  const geminiPrompt = buildGeminiPrompt(ticker);
+  const geminiPrompt = buildGeminiPrompt(ticker, tier);
 
   const shortPrompt = `Analyze ${ticker} as a stock investment based on current market conditions, recent news, and fundamentals. Consider the current broader market environment and any recent significant price moves.
 
@@ -1179,7 +1242,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   "bullScore1Y": <number 0-100, bull conviction for next 12 months — weight fundamentals and long-term outlook>
 }`;
 
-  const proShortPrompt = buildProShortPrompt(ticker);
+  const proShortPrompt = buildProShortPrompt(ticker, tier);
 
   // All tiers now use the reasoning-bearing prompt for GPT + Claude so Free users can read
   // their reasoning in the unlocked "individual model analysis" reveal. This does NOT add
@@ -1328,7 +1391,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
       body: JSON.stringify({
         model: 'sonar',
-        max_tokens: 450,
+        max_tokens: 900, // was 450; factors list needs headroom (only billed for tokens used)
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + proShortPrompt }
@@ -1390,7 +1453,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       claude.status === 'fulfilled' ? claude.value : { error: claude.reason?.message, bullScore: 50, bearScore: 50, model: 'Claude' },
       perplexity.status === 'fulfilled' ? perplexity.value : { error: perplexity.reason?.message, bullScore: 50, bearScore: 50, model: 'Perplexity' },
       grok.status   === 'fulfilled' ? grok.value   : { error: grok.reason?.message,   bullScore: 50, bearScore: 50, model: 'Grok' }
-    ].filter(r => r !== null);
+    ].filter(r => r !== null).map(r => sanitizeFactors(r, tier));
 
     results.forEach(r => {
       if (r.error) console.error(`[${r.model}] FAILED for ${ticker}: ${r.error}`);
