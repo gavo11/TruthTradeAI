@@ -5,9 +5,12 @@
 QuantCall AI sends any US-listed ticker to multiple AI models side by side: Claude, GPT and Gemini on the free plan, plus Perplexity and Grok on paid plans. Each model researches the stock with live web search. The results page shows each model's score with the weighted factors behind it, a combined consensus score, and a "What the models agree on" view of where the models agree and split. A typical analysis takes about 18 seconds. It is a research and education tool, not financial advice, and it does not place trades or connect to brokerages.
 
 ## Plans
-- Free: 2 analyses per day, 3 models (Claude, GPT, Gemini), top 3 weighted factors per model, 2 watchlist slots
-- Pro: $8.99/month, 10 analyses per day, all 5 models (adds Perplexity and Grok), 6 weighted factors per model, X sentiment, 1 Fable 5 run per day
-- Premium: $19.99/month, 20 analyses per day, every factor explained in detail, 5 Fable 5 runs per day, unlimited watchlist
+All allowances are monthly and reset on the 1st of each month (UTC).
+- Free: $0, 6 analyses per month, 3 models (Claude, GPT, Gemini), top 3 weighted factors per model, 1 X sentiment check per month, 2 watchlist slots
+- Pro: $9.99/month, 50 analyses per month, all 5 models (adds Perplexity and Grok), 6 weighted factors per model, 10 X sentiment checks per month, 10 watchlist slots
+- Premium: $19.99/month, 100 analyses per month, 6 fully explained factors, 25 Claude Fable 5 runs per month, 40 X sentiment checks per month, unlimited watchlist
+- Business: from $199/month, custom volume for newsletters, funds, creators and teams, with commercial use rights, team seats and priority support (contact support@quantcallai.com)
+Free, Pro and Premium are for personal, non-commercial use.
 
 ## Links
 - [Home](https://www.quantcallai.com/)

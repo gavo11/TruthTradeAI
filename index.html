@@ -20,7 +20,7 @@
 <meta name="twitter:description" content="Run any stock through Claude, GPT, Gemini, Perplexity and Grok at once. See where the models agree, where they split, and one combined verdict. Free to try.">
 <meta name="twitter:image" content="https://www.quantcallai.com/og-image.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "name": "QuantCall AI", "url": "https://www.quantcallai.com/", "logo": "https://www.quantcallai.com/assets/logo-512.png", "email": "support@quantcallai.com", "sameAs": ["https://www.instagram.com/quantcallai/"]}, {"@context": "https://schema.org", "@type": "WebSite", "name": "QuantCall AI", "url": "https://www.quantcallai.com/"}, {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "QuantCall AI", "applicationCategory": "FinanceApplication", "operatingSystem": "Web", "url": "https://www.quantcallai.com/", "description": "QuantCall AI runs a stock ticker through several AI models side by side (Claude, GPT and Gemini on the free plan; Perplexity and Grok on paid plans) and shows each model's verdict and reasoning, a consensus score, and where the models disagree. For research and education only, not financial advice.", "offers": [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Pro", "price": "8.99", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Premium", "price": "19.99", "priceCurrency": "USD"}]}]</script>
+<script type="application/ld+json">[{"@context": "https://schema.org", "@type": "Organization", "name": "QuantCall AI", "url": "https://www.quantcallai.com/", "logo": "https://www.quantcallai.com/assets/logo-512.png", "email": "support@quantcallai.com", "sameAs": ["https://www.instagram.com/quantcallai/"]}, {"@context": "https://schema.org", "@type": "WebSite", "name": "QuantCall AI", "url": "https://www.quantcallai.com/"}, {"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "QuantCall AI", "applicationCategory": "FinanceApplication", "operatingSystem": "Web", "url": "https://www.quantcallai.com/", "description": "QuantCall AI runs a stock ticker through several AI models side by side (Claude, GPT and Gemini on the free plan; Perplexity and Grok on paid plans) and shows each model's verdict and reasoning, a consensus score, and where the models disagree. For research and education only, not financial advice.", "offers": [{"@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Pro", "price": "9.99", "priceCurrency": "USD"}, {"@type": "Offer", "name": "Premium", "price": "19.99", "priceCurrency": "USD"}]}]</script>
 <meta name="description" content="Run any stock through Claude, GPT, Gemini, Perplexity and Grok at once. See where the models agree, where they split, and one combined verdict. Free to try.">
 <link rel="icon" href="/favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
@@ -346,7 +346,7 @@
     <li>See every model's take, the combined verdict, and the disagreements.</li>
   </ol>
   <h2 style="font-size:20px;margin-top:28px">Plans</h2>
-  <p style="color:#a8b3c9;line-height:1.7">Free: 2 analyses a day with Claude, GPT and Gemini. Pro ($8.99/mo) and Premium ($19.99/mo) add Perplexity, Grok, X sentiment and more daily analyses.</p>
+  <p style="color:#a8b3c9;line-height:1.7">Free: 6 analyses a month with Claude, GPT and Gemini. Pro ($9.99/mo, 50 analyses a month) adds Perplexity, Grok and X sentiment. Premium ($19.99/mo, 100 a month) adds fully explained factors and Claude Fable 5. Business plans for newsletters, funds and teams start at $199/mo.</p>
   <p style="color:#5e6a85;font-size:13px;margin-top:28px">For research and education only. Not financial advice. Questions: support@quantcallai.com</p>
 </main></div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -358,10 +358,10 @@ const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 
-function showPricingModal() {
+function showPricingModal(note) {
   state.authModal = false;
   state.pricingModal = true;
-  state.pricingNote = '';
+  state.pricingNote = typeof note === 'string' ? note : '';
   render();
 }
 
@@ -499,12 +499,29 @@ function waitForPlan(ms = 3000) {
   });
 }
 
+// Fetch this month's remaining allowances (read-only) so counters show "X of N left
+// this month" before the first analysis. Silent on failure — counters fall back to the
+// plan totals until an analysis response updates them.
+async function loadUsage() {
+  try {
+    const res = await fetch(`${BACKEND}/api/pro-status`, { headers: await authHeaders() });
+    if (!res.ok) return;
+    const j = await res.json();
+    const u = j && j.usage;
+    if (!u) return;
+    if (u.analyses) state.usageRemaining = u.analyses.remaining;
+    if (u.xSentiment) state.xSentRemaining = u.xSentiment.remaining;
+    if (u.fable) { state.fableRemaining = u.fable.remaining; state.fableLimit = u.fable.limit; }
+    render();
+  } catch (e) { /* offline / Render waking — keep defaults */ }
+}
+
 async function refreshProStatus() {
-  if (!currentUser) { resolvePlan('free'); return; }
+  if (!currentUser) { resolvePlan('free'); loadUsage(); return; }
   const uid = currentUser.id;
   try {
     const tier = await fetchTier();
-    if (currentUser?.id === uid) resolvePlan(tier); // ignore a stale answer after sign-out / user switch
+    if (currentUser?.id === uid) { resolvePlan(tier); loadUsage(); } // ignore a stale answer after sign-out / user switch
   } catch (e) {
     console.warn('Plan lookup failed:', e);
     if (planLoading() && currentUser?.id === uid) resolvePlan('free'); // never stay on the placeholder
@@ -989,8 +1006,15 @@ const PLAN_SKEL = (w, h, r) => `<span class="plan-skel" aria-hidden="true" style
 
 function isPaid(){ return state.tier === 'pro' || state.tier === 'premium'; }
 function isPremium(){ return state.tier === 'premium'; }
-function savedLimit(){ return state.tier === 'premium' ? Infinity : state.tier === 'pro' ? 10 : 2; }
-function fableLimit(){ return state.tier === 'premium' ? 5 : state.tier === 'pro' ? 1 : 0; }
+// Monthly plan allowances — must match TIER_*_LIMIT in the backend. Reset on the 1st (UTC).
+const PLAN_LIMITS = {
+  free:    { analyses: 6,   xsent: 1,  fable: 0,  saved: 2 },
+  pro:     { analyses: 50,  xsent: 10, fable: 0,  saved: 10 },
+  premium: { analyses: 100, xsent: 40, fable: 25, saved: Infinity }
+};
+function planOf(){ return PLAN_LIMITS[state.tier] || PLAN_LIMITS.free; }
+function savedLimit(){ return planOf().saved; }
+function fableLimit(){ return planOf().fable; }
 function fableRemaining(){ return state.fableRemaining == null ? fableLimit() : state.fableRemaining; }
 
 // ── Model slot metadata — the actual model behind each consensus chip ──────
@@ -1027,10 +1051,10 @@ function modelTipText(name){
   if (name === 'Claude') {
     const active = state.claudeModelName || 'Claude Haiku 5.5';
     if (state.claudeError && !state.claudeReanalyzing) return `${state.claudeError}\nTap to choose a model and retry.`;
-    if (!isPaid()) return `Active: ${active}\nUpgrade to unlock Claude Fable 5.`;
+    if (!isPremium()) return `Active: ${active}\nClaude Fable 5 is a Premium feature (25 runs a month).`;
     const lim = fableLimit(), rem = fableRemaining(), used = Math.max(0, lim - rem), fableOn = state.useFable;
-    const cappedNote = (fableOn && rem <= 0) ? `\nToday's Fable 5 uses are used up — next analysis uses Haiku.` : '';
-    return `${fableOn ? '✓' : '○'} Claude Fable 5 — ${used} of ${lim} used today`
+    const cappedNote = (fableOn && rem <= 0) ? `\nThis month's Fable 5 runs are used up — next analysis uses Haiku.` : '';
+    return `${fableOn ? '✓' : '○'} Claude Fable 5 — ${used} of ${lim} used this month`
       + `\n${fableOn ? '○' : '✓'} Claude Haiku 5.5 (default)` + cappedNote + `\n\nTap to choose.`;
   }
   const locked = meta.proOnly && !isPaid();
@@ -1051,7 +1075,9 @@ function selectClaudeModel(useFable){
   if (planLoading()) return; // plan not known yet — never show an upgrade prompt to a payer
   if (!isPaid()) { state.modelPopup = null; state.fableConfirm = false; showPricingModal(); return; }
   if (useFable) {
-    if (fableRemaining() <= 0) return; // at daily cap — option is disabled, no confirm, no gold
+    // Fable 5 is Premium-only: Pro sees it as a locked teaser that opens pricing.
+    if (!isPremium()) { state.modelPopup = null; state.fableConfirm = false; showPricingModal('Claude Fable 5 is included with Premium — 25 runs a month, plus fully explained factors.'); return; }
+    if (fableRemaining() <= 0) return; // at monthly cap — option is disabled, no confirm, no gold
     state.fableConfirm = true; render(); // ask before spending a use; still no gold
   } else {
     // Switch to Haiku. If already on Haiku with no error, nothing to do.
@@ -1163,7 +1189,8 @@ function modelOption(o){
 // Claude popup: Haiku (default) + Fable 5 (gold premium option). At the daily cap,
 // the Fable option is disabled and shows the used/total count (no confirm, no gold).
 function claudePopupRows(){
-  const paid = isPaid();
+  const paid = isPremium(); // Fable 5 unlock = Premium only (Pro sees a locked teaser)
+  const isProTier = state.tier === 'pro';
   const lim = fableLimit(), rem = fableRemaining(), used = Math.max(0, lim - rem);
   const fableActive = paid && state.useFable && !state.claudeError; // gold only when truly active
   const haikuActive = !fableActive;
@@ -1171,11 +1198,11 @@ function claudePopupRows(){
   const goldTag = `<span class="pro-tag" style="font-size:8px;padding:2px 6px">PREMIUM</span>`;
   const haiku = modelOption({ title:'Claude Haiku 5.5', sub:'Default · fast, always available', active:haikuActive, onclick:'selectClaudeModel(false)' });
   let fableSub;
-  if (!paid) fableSub = `Anthropic's most powerful reasoning model — upgrade to unlock`;
-  else if (capped) fableSub = `${used} of ${lim} Fable 5 uses today — resets tomorrow`;
-  else fableSub = `Anthropic's most powerful reasoning model · ${used} of ${lim} used today`;
+  if (!paid) fableSub = `Anthropic's most powerful reasoning model — Premium only`;
+  else if (capped) fableSub = `${used} of ${lim} Fable 5 runs this month — resets on the 1st`;
+  else fableSub = `Anthropic's most powerful reasoning model · ${used} of ${lim} used this month`;
   const fable = modelOption({ title:'✦ Claude Fable 5', sub:fableSub, active:fableActive, premium:true, locked:!paid, disabled:capped, onclick:'selectClaudeModel(true)', badge:goldTag });
-  const foot = paid ? '' : `<button onclick="closeModelPopup();showPricingModal()" class="btn-gold" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Unlock Fable 5 with Pro</button>`;
+  const foot = paid ? '' : `<button onclick="closeModelPopup();showPricingModal('Claude Fable 5 is included with Premium — 25 runs a month, plus fully explained factors.')" class="btn-primary" style="margin-top:4px;width:100%;padding:10px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">${isProTier ? 'Unlock Fable 5 with Premium' : 'Unlock Fable 5 with Premium'}</button>`;
   return haiku + fable + foot;
 }
 
@@ -1188,7 +1215,7 @@ function fableConfirmCard(){
         <span class="pro-tag" style="font-size:8px;padding:2px 6px">PREMIUM</span>
         <h3 style="font-size:15px;font-weight:800;color:#fff">Use Claude Fable 5 for this analysis?</h3>
       </div>
-      <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:16px">Fable 5 is a premium reasoning model. This re-runs the Claude analysis and uses <b style="color:#ffd700">1 of your ${lim}</b> daily Fable 5 uses (${used} of ${lim} used today).</p>
+      <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6;margin-bottom:16px">Fable 5 is a premium reasoning model. This re-runs the Claude analysis and uses <b style="color:#ffd700">1 of your ${lim}</b> monthly Fable 5 runs (${used} of ${lim} used this month).</p>
       <button onclick="confirmFable(true)" class="btn-gold" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin-bottom:9px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3)">Yes, use Fable 5</button>
       <button onclick="confirmFable(false)" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,255,255,.05);color:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.12);cursor:pointer">No, stay on Haiku</button>
     </div>`;
@@ -1760,12 +1787,12 @@ async function analyzeStock() {
     const aiRes = await fetch(`${BACKEND}/api/analyze`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ ticker, useFable: state.useFable && isPaid() })
+      body: JSON.stringify({ ticker, useFable: state.useFable && isPremium() })
     });
 
     if (aiRes.status === 429) {
       const errJson = await aiRes.json();
-      state.usageError = errJson.message || "You've used all your free analyses for today.";
+      state.usageError = errJson.message || "You've used all your analyses for this month. They reset on the 1st.";
       state.usageRemaining = 0;
       state.ticker = ''; // don't show a half-loaded result for a blocked request
       clearTimeout(loadingTimeout);
@@ -1895,7 +1922,8 @@ function manualRetryModel(name) {
 
 async function analyzeXSentiment() {
   await waitForPlan();
-  if (!isPaid()) { showPricingModal(); return; }
+  // Free plan includes 1 check a month, but it needs an account (no anonymous use).
+  if (!currentUser) { state.authModal = true; state.authMode = 'signup'; state.authError = ''; render(); return; }
   const ticker = state.ticker;
   if (!ticker) return;
   state.xSentLoading = true; state.xSentError = null; render();
@@ -1906,7 +1934,7 @@ async function analyzeXSentiment() {
     const json = await res.json().catch(() => ({}));
     if (res.status === 403) { state.xSentLoading = false; showPricingModal(); return; }
     if (res.status === 429) {
-      state.xSentError = json.message || "You've used all your X-Sentiment checks for today.";
+      state.xSentError = json.message || "You've used all your X-Sentiment checks for this month.";
       state.xSentRemaining = 0; state.xSentLoading = false; render(); return;
     }
     if (!res.ok || json.error) throw new Error(json.error || 'failed');
@@ -1985,14 +2013,18 @@ function render(){
           <button onclick="analyzeStock()" class="btn-analyze" style="margin:7px;padding:11px 22px;border-radius:10px;font-size:13px;font-weight:700">Analyze</button>
         </div>
         ${(()=>{
-          // Usage line — keeps the live free-tier counter, formatted as the locked copy
-          // "<count> · Upgrade · No credit card". Paid users see no line.
-          if (isPaid()) return '';
+          // Usage line — live monthly counter. Free: "<count> · Upgrade · No credit card".
+          // Pro: "<count> · Upgrade". Premium: count only.
           if (planLoading()) return `<div class="usage-line">${PLAN_SKEL(240, 16, 6)}</div>`;
-          const rem = state.usageRemaining;
-          const txt = rem === null ? '2 free analyses per day'
-            : rem === 0 ? 'No free analyses left today'
-            : `${rem} ${rem === 1 ? 'analysis' : 'analyses'} left today`;
+          const rem = state.usageRemaining, lim = planOf().analyses;
+          const txt = rem === null ? (isPaid() ? `${lim} analyses a month` : `${lim} free analyses a month`)
+            : rem === 0 ? 'No analyses left this month — resets on the 1st'
+            : `${rem} of ${lim} ${lim === 1 ? 'analysis' : 'analyses'} left this month`;
+          if (isPremium()) return `<div class="usage-line"><span>${txt}</span></div>`;
+          if (isPaid()) return `<div class="usage-line">
+            <span>${txt}</span><span class="dotsep">·</span>
+            <span class="u-up" role="button" tabindex="0" onclick="showPricingModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPricingModal()}">Upgrade</span>
+          </div>`;
           return `<div class="usage-line">
             <span>${txt}</span><span class="dotsep">·</span>
             <span class="u-up" role="button" tabindex="0" onclick="showPricingModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showPricingModal()}">Upgrade</span>
@@ -2299,26 +2331,29 @@ function render(){
       ${(()=>{
         const ai = state.aiData[state.ticker];
         if (!ai || state.loading) return '';
-        if (!isPaid()) {
+        if (!currentUser) {
           return `<div class="pro-card" style="padding:18px 22px;margin-bottom:12px">
             <div style="display:flex;align-items:center;gap:11px;margin-bottom:16px">
               <span style="display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:10px;background:#000;border:1px solid rgba(255,255,255,.14);color:#fff;font-size:16px;font-weight:800;flex-shrink:0">X</span>
               <h3 style="font-size:16px;font-weight:800;color:#fff;letter-spacing:-.01em">X Sentiment</h3>
-              <span class="pro-tag">PRO</span>
+              <span style="font-size:9px;font-weight:800;letter-spacing:.06em;color:#00c896;background:rgba(0,200,150,.12);border:1px solid rgba(0,200,150,.3);padding:2px 7px;border-radius:6px">FREE · 1/MO</span>
             </div>
             <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
               <div style="display:flex;align-items:flex-start;gap:11px;flex:1;min-width:200px">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6">Real-time social sentiment from X, powered by Grok — see how retail traders are positioned. <span style="color:#ffd700;font-weight:600">Pro only.</span></p>
+                <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6">Real-time social sentiment from X, powered by Grok — see how retail traders are positioned. <span style="color:#ffd700;font-weight:600">Free accounts get 1 check a month.</span></p>
               </div>
-              <button onclick="showPricingModal()" class="btn-gold" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3);white-space:nowrap">Unlock with Pro</button>
+              <button onclick="state.authModal=true;state.authMode='signup';state.authError='';render()" class="btn-gold" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 4px 14px rgba(240,185,11,.3);white-space:nowrap">Sign up free</button>
             </div>
           </div>`;
         }
-        const xsCap = isPremium() ? 4 : 2;
+        const xsCap = planOf().xsent;
         const xsRem = state.xSentRemaining;
         const xs = (state.xSent && state.xSent.ticker === d.ticker) ? state.xSent : null;
-        const counter = xsRem != null ? `${xsRem} of ${xsCap} left today` : `${xsCap} / day`;
+        const counter = xsRem != null ? `${xsRem} of ${xsCap} left this month` : `${xsCap} / month`;
+        const xsUpsell = isPremium() ? '' : state.tier === 'pro'
+          ? `<button onclick="showPricingModal()" class="btn-primary" style="margin-top:10px;padding:8px 14px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">Want 40 a month? Upgrade to Premium</button>`
+          : `<button onclick="showPricingModal()" class="btn-gold" style="margin-top:10px;padding:8px 14px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer">Get 10 a month with Pro</button>`;
         let body;
         if (state.xSentLoading) {
           body = `<div style="display:flex;align-items:center;gap:9px;padding:4px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:13px;color:rgba(255,255,255,.6)">Reading recent posts on X…</span></div>`;
@@ -2336,11 +2371,11 @@ function render(){
               ${xsRem > 0 ? `<button onclick="analyzeXSentiment()" class="nav-btn" style="padding:4px 10px;border-radius:10px;font-size:10px;font-weight:600;background:rgba(255,255,255,.05);color:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.1);cursor:pointer;white-space:nowrap">↻ Refresh</button>` : ''}
             </div>`;
         } else if (state.xSentError) {
-          body = `<p style="font-size:13px;color:#ff8c42;line-height:1.6">${state.xSentError}</p>${(xsRem === 0 && !isPremium()) ? `<button onclick="showPricingModal()" class="btn-primary" style="margin-top:10px;padding:8px 14px;border-radius:10px;font-size:11.5px;font-weight:800;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer">Want 4/day? Upgrade to Premium</button>` : ''}`;
+          body = `<p style="font-size:13px;color:#ff8c42;line-height:1.6">${state.xSentError}</p>${xsRem === 0 ? xsUpsell : ''}`;
         } else {
           body = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
               <p style="font-size:11.5px;color:rgba(255,255,255,.6);line-height:1.6;flex:1;min-width:180px">See how retail traders on X are positioned on ${d.ticker} right now, powered by Grok.</p>
-              <button onclick="analyzeXSentiment()" class="btn-primary" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze X-Sentiment</button>
+              ${xsRem === 0 ? xsUpsell.replace('margin-top:10px;','') : `<button onclick="analyzeXSentiment()" class="btn-primary" style="padding:9px 16px;border-radius:10px;font-size:13px;font-weight:800;background:linear-gradient(180deg,#4a90ff,#2f6fe0);color:#fff;border:none;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(61,133,255,.35)">Analyze X-Sentiment</button>`}
             </div>`;
         }
         return `<div class="pro-card" style="padding:18px 22px;margin-bottom:12px">
@@ -2564,25 +2599,25 @@ function render(){
 
     ${state.pricingModal?`
     <div onclick="state.pricingModal=false;render()" style="position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:60"></div>
-    <div onclick="event.stopPropagation()" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:680px;max-width:92vw;z-index:70;background:#141b2d;border-radius:20px;border:1px solid rgba(255,255,255,.08);padding:32px 28px;max-height:88vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.6)">
+    <div onclick="event.stopPropagation()" style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:940px;max-width:94vw;z-index:70;background:#141b2d;border-radius:20px;border:1px solid rgba(255,255,255,.08);padding:32px 28px;max-height:88vh;overflow-y:auto;box-shadow:0 30px 80px rgba(0,0,0,.6)">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
         <h3 style="font-size:20px;font-weight:800;color:#fff">Upgrade your plan</h3>
         <button onclick="state.pricingModal=false;render()" style="background:transparent;color:rgba(255,255,255,.4);font-size:20px;border:none;cursor:pointer">×</button>
       </div>
       ${state.pricingNote ? `<div style="display:flex;align-items:flex-start;gap:9px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:11px 14px;margin-bottom:18px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span style="font-size:13px;color:#ffd700;font-weight:600;line-height:1.5">${state.pricingNote}</span></div>` : ''}
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px">
         <div style="background:#0d1426;border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:20px 18px">
           <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Free</h4>
           <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$0</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
           <div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(255,255,255,.04);color:rgba(255,255,255,.4);border:1px solid rgba(255,255,255,.08)">${state.tier==='free'?'Your plan':'Free'}</div>
           <div style="display:flex;flex-direction:column;gap:9px">
-            ${["2 analyses / day","3 AI models (Gemini, GPT, Claude)","Individual model analysis for all 3","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
+            ${["6 analyses / month","3 AI models (Gemini, GPT, Claude)","Top 3 factors per analysis","X Sentiment: 1 / month","2 saved watchlist slots"].map(f=>featLine(f,'rgba(255,255,255,.3)','rgba(255,255,255,.6)')).join('')}
           </div>
         </div>
         <div style="background:linear-gradient(135deg,rgba(61,133,255,.1),rgba(255,215,0,.06));border:1.5px solid rgba(255,215,0,.4);border-radius:16px;padding:20px 18px;position:relative">
           <span style="position:absolute;top:-9px;left:18px;font-size:9px;font-weight:800;color:#0a0f1e;background:linear-gradient(180deg,#ffe566,#f0b90b);padding:3px 9px;border-radius:7px;letter-spacing:0.06em;box-shadow:0 3px 10px rgba(240,185,11,.3)">POPULAR</span>
           <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Pro</h4>
-          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$8.99</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
+          <div style="display:flex;align-items:baseline;gap:3px;margin:10px 0 4px"><span style="font-size:26px;font-weight:800;color:#fff">$9.99</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
           ${state.tier==='pro'
             ? `<div style="width:100%;padding:9px;border-radius:10px;font-size:11.5px;font-weight:700;text-align:center;margin:12px 0 16px;background:rgba(0,200,150,.15);color:#00c896;border:1px solid rgba(0,200,150,.3)">✓ Your plan</div>`
             : state.tier==='premium'
@@ -2590,7 +2625,8 @@ function render(){
               : `<button onclick="state.pricingModal=false;startCheckout('pro')" class="btn-gold" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#ffe566,#f0b90b);color:#0a0f1e;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(240,185,11,.3)">Upgrade to Pro</button>`
           }
           <div style="display:flex;flex-direction:column;gap:9px">
-            ${["10 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info reveals + all-5-model analysis","10 saved watchlist slots","X-Sentiment: 2 / day","Claude Fable 5: 1 / day"].map(f=>featLine(f,'#ffd700','rgba(255,255,255,.8)')).join('')}
+            ${["50 analyses / month","All 5 AI models (+ Perplexity & Grok)","6 factors per analysis","X Sentiment: 10 / month","10 saved watchlist slots"].map(f=>featLine(f,'#ffd700','rgba(255,255,255,.8)')).join('')}
+            <div style="display:flex;align-items:flex-start;gap:7px"><span style="color:rgba(255,255,255,.3);font-size:11.5px;margin-top:1px;flex-shrink:0">🔒</span><span style="font-size:11.5px;color:rgba(255,255,255,.4);line-height:1.45">Claude Fable 5 — Premium</span></div>
           </div>
         </div>
         <div style="background:linear-gradient(135deg,rgba(140,110,255,.14),rgba(61,133,255,.08));border:1.5px solid rgba(140,110,255,.45);border-radius:16px;padding:20px 18px;position:relative">
@@ -2601,10 +2637,21 @@ function render(){
             : `<button onclick="state.pricingModal=false;startCheckout('premium')" class="btn-primary" style="width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin:12px 0 16px;background:linear-gradient(180deg,#8c6eff,#6a4bff);color:#fff;border:none;cursor:pointer;box-shadow:0 6px 18px rgba(122,90,248,.35)">Upgrade to Premium</button>`
           }
           <div style="display:flex;flex-direction:column;gap:9px">
-            ${["20 analyses / day","All 5 AI models (+ Perplexity & Grok)","More detailed analysis","More Info reveals + all-5-model analysis","Unlimited saved watchlist","X-Sentiment: 4 / day","Claude Fable 5: 5 / day"].map(f=>featLine(f,'#a48bff','rgba(255,255,255,.85)')).join('')}
+            ${["100 analyses / month","All 5 AI models (+ Perplexity & Grok)","6 fully explained factors","Claude Fable 5: 25 / month","X Sentiment: 40 / month","Unlimited saved watchlist"].map(f=>featLine(f,'#a48bff','rgba(255,255,255,.85)')).join('')}
           </div>
         </div>
+        <div style="background:linear-gradient(135deg,rgba(255,255,255,.05),rgba(255,255,255,.015));border:1.5px solid rgba(255,255,255,.18);border-radius:16px;padding:20px 18px;position:relative">
+          <h4 style="font-size:16px;font-weight:800;color:#fff;margin-bottom:2px">Business</h4>
+          <div style="display:flex;align-items:baseline;gap:4px;margin:10px 0 4px"><span style="font-size:11.5px;color:rgba(255,255,255,.5)">From</span><span style="font-size:26px;font-weight:800;color:#fff">$199</span><span style="font-size:11.5px;color:rgba(255,255,255,.4)">/mo</span></div>
+          <a href="mailto:support@quantcallai.com?subject=QuantCall%20AI%20Business" style="display:block;width:100%;padding:11px;border-radius:10px;font-size:13px;font-weight:800;margin:12px 0 16px;background:#fff;color:#0a0f1e;text-align:center;text-decoration:none;box-sizing:border-box">Contact sales</a>
+          <p style="font-size:11.5px;color:rgba(255,255,255,.7);line-height:1.55;margin-bottom:12px">For newsletters, funds, creators and teams. Commercial use rights, team seats, priority support.</p>
+          <div style="display:flex;flex-direction:column;gap:9px">
+            ${["Custom analysis volume","Everything in Premium","Commercial use license"].map(f=>featLine(f,'rgba(255,255,255,.75)','rgba(255,255,255,.8)')).join('')}
+          </div>
+          <p style="font-size:11px;color:rgba(255,255,255,.45);margin-top:14px">support@quantcallai.com</p>
+        </div>
       </div>
+      <p style="font-size:10.5px;color:rgba(255,255,255,.35);text-align:center;margin-top:16px;line-height:1.6">Allowances reset on the 1st of each month. Cancel anytime. Free, Pro and Premium are for personal, non-commercial use.</p>
     </div>`:""}
 
     ${state.authModal?`
@@ -2630,8 +2677,8 @@ function render(){
             <span style="font-size:11.5px;font-weight:700;text-transform:capitalize;color:${state.tier==='premium'?'#a48bff':state.tier==='pro'?'#ffd700':'rgba(255,255,255,.6)'};background:${state.tier==='premium'?'rgba(140,110,255,.15)':state.tier==='pro'?'rgba(255,215,0,.15)':'rgba(255,255,255,.06)'};padding:3px 10px;border-radius:6px">${state.tier}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Daily analyses</span>
-            <span style="font-size:11.5px;font-weight:600;color:#fff">${state.tier==='premium'?'20':state.tier==='pro'?'10':'2'} / day</span>
+            <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Analyses this month</span>
+            <span style="font-size:11.5px;font-weight:600;color:#fff">${state.usageRemaining!=null?`${state.usageRemaining} of ${planOf().analyses} left`:`${planOf().analyses} / month`}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Saved watchlist</span>
@@ -2639,13 +2686,14 @@ function render(){
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
             <span style="font-size:11.5px;color:rgba(255,255,255,.4)">X-Sentiment</span>
-            <span style="font-size:11.5px;font-weight:600;color:${isPaid()?'#00c896':'#ff4757'}">${state.tier==='premium'?'4 / day':state.tier==='pro'?'2 / day':'Locked'}</span>
+            <span style="font-size:11.5px;font-weight:600;color:#00c896">${state.xSentRemaining!=null?`${state.xSentRemaining} of ${planOf().xsent} left`:`${planOf().xsent} / month`}</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center">
             <span style="font-size:11.5px;color:rgba(255,255,255,.4)">Claude Fable 5</span>
-            <span style="font-size:11.5px;font-weight:600;color:${isPaid()?'#a48bff':'#ff4757'}">${state.tier==='premium'?'5 / day':state.tier==='pro'?'1 / day':'Locked'}</span>
+            <span style="font-size:11.5px;font-weight:600;color:${isPremium()?'#a48bff':'#ff4757'}">${isPremium()?(state.fableRemaining!=null?`${state.fableRemaining} of ${planOf().fable} left`:`${planOf().fable} / month`):'Premium only'}</span>
           </div>
         </div>
+        <p style="font-size:10.5px;color:rgba(255,255,255,.35);text-align:center;margin:-8px 0 14px">Allowances reset on the 1st of each month.</p>
         ${state.tier==='premium'
           ? `<div style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(0,200,150,.1);color:#00c896;border:1.5px solid rgba(0,200,150,.3);text-align:center;margin-bottom:10px">✓ You're on Premium</div>`
           : `<button onclick="showPricingModal()" style="width:100%;padding:12px;border-radius:10px;font-size:13px;font-weight:700;background:rgba(255,215,0,.15);color:#ffd700;border:1.5px solid rgba(255,215,0,.4);cursor:pointer;margin-bottom:10px">${state.tier==='pro'?'Upgrade to Premium':'Upgrade your plan'}</button>`
@@ -2667,7 +2715,7 @@ function render(){
         <div style="text-align:center;margin-bottom:24px">
           <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">${logoMark(44)}</div>
           <h3 style="font-size:18px;font-weight:700;color:#fff">${state.authMode==='login'?'Welcome back':'Create account'}</h3>
-          <p style="font-size:11.5px;color:rgba(255,255,255,.4);margin-top:4px">${state.authMode==='login'?'Sign in to your QuantCall AI account':'Sign up for free — 2 analyses per day'}</p>
+          <p style="font-size:11.5px;color:rgba(255,255,255,.4);margin-top:4px">${state.authMode==='login'?'Sign in to your QuantCall AI account':'Sign up for free — 6 analyses a month'}</p>
         </div>
         ${state.authError?`<div style="background:rgba(255,71,87,.1);border:1px solid rgba(255,71,87,.3);border-radius:10px;padding:10px 12px;font-size:11.5px;color:#ff4757;margin-bottom:16px">${state.authError}</div>`:''}
         <button onclick="signInWithGoogle()" ${state.googleLoading?'disabled':''} class="google-btn" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:11px 14px;border-radius:10px;background:#111a2e;border:1px solid #1c2740;color:#fff;font-size:14px;font-weight:700;line-height:1;font-family:inherit;cursor:${state.googleLoading?'default':'pointer'};margin-bottom:16px">

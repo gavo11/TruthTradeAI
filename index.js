@@ -21,11 +21,14 @@ function cleanTicker(raw) {
 // falls back to the main site so checkout can't be used to bounce users to other sites).
 const ALLOWED_ORIGINS = ['https://www.quantcallai.com', 'https://quantcallai.com'];
 
-const TIER_ANALYSIS_LIMIT = { free: 2, pro: 10, premium: 20 };
-const TIER_XSENT_LIMIT = { free: 0, pro: 2, premium: 4 };
+// MONTHLY plan allowances (reset on the 1st of each month, UTC). Analyses, X-Sentiment
+// and Fable 5 are all tracked per calendar month in the usage table (see usagePeriod).
+// Fable 5 is Premium-only; Pro sees it as a locked teaser.
+const TIER_ANALYSIS_LIMIT = { free: 6, pro: 50, premium: 100 };
+const TIER_XSENT_LIMIT = { free: 1, pro: 10, premium: 40 };
 const TIER_SAVED_LIMIT = { free: 2, pro: 10, premium: Infinity };
-const TIER_FABLE_LIMIT = { free: 0, pro: 1, premium: 5 };
-// Daily per-model retry budget (/api/retry-model) — tracked separately from the analysis
+const TIER_FABLE_LIMIT = { free: 0, pro: 0, premium: 25 };
+// Daily per-model retry budget (/api/retry-model — stays DAILY, unlike the plan allowances) — tracked separately from the analysis
 // cap in the usage table under a `retry:` prefix, so retries can't be used to bypass the
 // analysis cap and can't run unbounded API cost.
 const TIER_RETRY_LIMIT = { free: 5, pro: 15, premium: 25 };
@@ -183,7 +186,24 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.get('/api/pro-status', async (req, res) => {
   const tier = await getUserTier(req.headers['authorization']);
-  res.json({ tier, isPro: tier !== 'free' });
+  // Also report this month's remaining allowances so the UI can show "X of N left this
+  // month" before the first analysis. Read-only (never consumes a use); any failure just
+  // omits the usage block.
+  let usage = null;
+  try {
+    const userId = await getUserId(req.headers['authorization']);
+    const id = getRequestIdentifier(req, userId);
+    const [a, x, f] = await Promise.all([getUsageCount(id), getUsageCount(`xsent:${id}`), getUsageCount(`fable:${id}`)]);
+    const left = (lim, used) => Math.max(0, lim - used);
+    usage = {
+      period: 'month',
+      resetsAt: nextMonthlyReset(),
+      analyses: { limit: TIER_ANALYSIS_LIMIT[tier], remaining: left(TIER_ANALYSIS_LIMIT[tier], a) },
+      xSentiment: { limit: TIER_XSENT_LIMIT[tier], remaining: left(TIER_XSENT_LIMIT[tier], x) },
+      fable: { limit: TIER_FABLE_LIMIT[tier], remaining: left(TIER_FABLE_LIMIT[tier], f) }
+    };
+  } catch (e) { console.warn('[pro-status] usage read failed:', e.message); }
+  res.json({ tier, isPro: tier !== 'free', usage });
 });
 
 // ── Saved analyses (Watchlist) ───────────────────────────────────────────────
@@ -598,6 +618,8 @@ function tierFromSubscription(subscription) {
   const priceId = subscription?.items?.data?.[0]?.price?.id;
   if (priceId && priceId === process.env.STRIPE_PREMIUM_PRICE_ID) return 'premium';
   if (priceId && priceId === process.env.STRIPE_PRICE_ID) return 'pro';
+  // Legacy $8.99 Pro price (pre-Nov 2026) — still maps to Pro if any sub is on it.
+  if (priceId && priceId === 'price_1TvJKyGabK3Et7zNc3xE36IE') return 'pro';
   return subscription?.metadata?.tier === 'premium' ? 'premium' : 'pro';
 }
 
@@ -612,10 +634,25 @@ function getRequestIdentifier(req, userId) {
   return `ip:${String(ip).trim()}`;
 }
 
-// ── Check today's usage count for an identifier and increment if allowed ──
+// ── Usage periods ────────────────────────────────────────────────────────────
+// Plan allowances are MONTHLY: rows are keyed by the first day of the UTC month and the
+// identifier gets a `mo:` prefix so they never collide with the old daily rows (or the
+// still-daily retry budget). period 'day' keeps the original per-day behaviour.
+function usageKey(identifier, period = 'month') {
+  const iso = new Date().toISOString();
+  if (period === 'day') return { identifier, date: iso.slice(0, 10) };
+  return { identifier: `mo:${identifier}`, date: `${iso.slice(0, 7)}-01` };
+}
+// ISO timestamp of the next monthly reset (1st of next month, 00:00 UTC).
+function nextMonthlyReset() {
+  const d = new Date();
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)).toISOString();
+}
+
+// ── Check this period's usage count for an identifier and increment if allowed ──
 // Returns { allowed: boolean, remaining: number }
-async function checkAndIncrementUsage(identifier, limit) {
-  const today = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD" in UTC
+async function checkAndIncrementUsage(rawIdentifier, limit, period = 'month') {
+  const { identifier, date: today } = usageKey(rawIdentifier, period);
 
   // SECURITY: check-and-add in ONE database step (increment_usage_if_below). The old
   // read-then-write below let several requests fired at the same moment all read the
@@ -691,11 +728,11 @@ async function checkAndIncrementUsage(identifier, limit) {
   }
 }
 
-// ── Read today's usage count for an identifier WITHOUT incrementing it ──
+// ── Read this period's usage count for an identifier WITHOUT incrementing it ──
 // Used to report remaining quota (e.g. Fable 5) when we aren't consuming a use.
 // Returns 0 on any error so callers can compute a non-negative remaining.
-async function getUsageCount(identifier) {
-  const today = new Date().toISOString().slice(0, 10);
+async function getUsageCount(rawIdentifier, period = 'month') {
+  const { identifier, date: today } = usageKey(rawIdentifier, period);
   try {
     const getRes = await fetch(
       `${SUPABASE_URL}/rest/v1/usage?identifier=eq.${encodeURIComponent(identifier)}&date=eq.${today}&select=count`,
@@ -710,13 +747,13 @@ async function getUsageCount(identifier) {
   }
 }
 
-// ── Increment today's usage for an identifier by 1, unconditionally ──
+// ── Increment this period's usage for an identifier by 1, unconditionally ──
 // Used AFTER a successful gated call (X-Sentiment, Fable 5) so that a failed or
-// timed-out call never burns the user's (very limited) daily quota. Returns
+// timed-out call never burns the user's (limited) monthly quota. Returns
 // { remaining } based on the post-increment count.
-async function incrementUsage(identifier, limit) {
-  const today = new Date().toISOString().slice(0, 10);
-  const current = await getUsageCount(identifier);
+async function incrementUsage(rawIdentifier, limit, period = 'month') {
+  const { identifier, date: today } = usageKey(rawIdentifier, period);
+  const current = await getUsageCount(rawIdentifier, period);
   const newCount = current + 1;
   try {
     const upsertRes = await fetch(
@@ -857,13 +894,19 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   });
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || 'Grok X-Sentiment request failed');
+  // COST WATCH: X-Sentiment cost wasn't measured yet — log tokens + tool calls per run.
+  try {
+    const u = data.usage || {};
+    const searches = (data.output || []).filter(o => /search|tool/i.test(o?.type || '')).length;
+    console.log(`[XSent][cost] ${ticker} in=${u.input_tokens ?? '?'} out=${u.output_tokens ?? '?'} reasoning=${u.output_tokens_details?.reasoning_tokens ?? '?'} tool_items=${searches} cost_usd_ticks=${u.cost_in_usd_ticks ?? data.cost_in_usd_ticks ?? '?'}`);
+  } catch (_) {}
   const outputText = data.output?.flatMap(item => item.content || [])?.filter(c => c.type === 'output_text' || c.text)?.map(c => c.text)?.join('') || '';
   if (!outputText) throw new Error('Grok X-Sentiment returned no text content');
   const stripped = outputText.replace(/```json|```/g, '').trim();
   return JSON.parse(extractJSON(stripped));
 }
 
-// POST /api/x-sentiment — gated, daily-capped feature (Free 0 / Pro 2 / Premium 4)
+// POST /api/x-sentiment — monthly-capped feature (Free 1 / Pro 10 / Premium 40)
 app.post('/api/x-sentiment', async (req, res) => {
   const ticker = cleanTicker(req.body?.ticker);
   if (!ticker) return res.status(400).json({ error: 'ticker required' });
@@ -871,14 +914,14 @@ app.post('/api/x-sentiment', async (req, res) => {
   const userId = await getUserId(req.headers['authorization']);
   const limit = TIER_XSENT_LIMIT[tier];
   if (!limit || limit <= 0) {
-    return res.status(403).json({ error: 'tier_locked', message: 'X-Sentiment is a Pro feature — upgrade to unlock it.', tier, xSentRemaining: 0 });
+    return res.status(403).json({ error: 'tier_locked', message: 'X-Sentiment is not included on this plan.', tier, xSentRemaining: 0 });
   }
   // Check the cap WITHOUT consuming a use, so a failed Grok call doesn't burn one of
-  // the user's (2–4/day) X-Sentiment checks. We only increment after a real success.
+  // the user's monthly X-Sentiment checks. We only increment after a real success.
   const xsentId = `xsent:${getRequestIdentifier(req, userId)}`;
   const usedToday = await getUsageCount(xsentId);
   if (usedToday >= limit) {
-    return res.status(429).json({ error: 'xsent_limit_reached', message: `You've used all ${limit} X-Sentiment checks for today on the ${tier} plan.`, tier, xSentRemaining: 0 });
+    return res.status(429).json({ error: 'xsent_limit_reached', message: `${limit === 1 ? "You've used your X-Sentiment check" : `You've used all ${limit} X-Sentiment checks`} for this month on the ${tier} plan.${tier === 'premium' ? ' Your checks reset on the 1st.' : ' Upgrade for more, or wait for the reset on the 1st.'}`, tier, xSentRemaining: 0 });
   }
   try {
     const result = await callGrokXSentiment(String(ticker).toUpperCase());
@@ -1069,7 +1112,7 @@ app.post('/api/retry-model', async (req, res) => {
   // consuming the user's daily analyses. Not charged on the 400/403 rejections above.
   const userId = await getUserId(req.headers['authorization']);
   const retryLimit = TIER_RETRY_LIMIT[tier] ?? TIER_RETRY_LIMIT.free;
-  const retryUsage = await checkAndIncrementUsage(`retry:${getRequestIdentifier(req, userId)}`, retryLimit);
+  const retryUsage = await checkAndIncrementUsage(`retry:${getRequestIdentifier(req, userId)}`, retryLimit, 'day');
   if (!retryUsage.allowed) {
     return res.status(429).json({
       error: 'retry_limit_reached',
@@ -1130,8 +1173,8 @@ async function runSingleClaude(ticker, useFableModel, tier) {
 }
 
 // POST /api/analyze-model — re-run a single model card (currently only the Claude
-// slot, for a Haiku↔Fable 5 swap). Applies the same Fable daily-cap + silent
-// Haiku fallback as /api/analyze, but does NOT touch the daily *analysis* cap —
+// slot, for a Haiku↔Fable 5 swap). Applies the same Fable monthly cap + silent
+// Haiku fallback as /api/analyze, but does NOT touch the monthly *analysis* cap —
 // this is a scoped single-model refresh, not a new full analysis.
 app.post('/api/analyze-model', async (req, res) => {
   const { model } = req.body || {};
@@ -1141,10 +1184,10 @@ app.post('/api/analyze-model', async (req, res) => {
   const tier = await getUserTier(req.headers['authorization']);
   const userId = await getUserId(req.headers['authorization']);
 
-  // ── SECURITY: paid-only + daily analysis cap ──────────────────────────────
+  // ── SECURITY: paid-only + monthly analysis cap ──────────────────────────────
   // This endpoint runs a full paid-budget Claude + Brave call, so it must be gated
   // exactly like /api/analyze. Reject Free (and anonymous — getUserTier returns
-  // 'free' for them) outright, and meter every call against the SAME daily analysis
+  // 'free' for them) outright, and meter every call against the SAME monthly analysis
   // counter so it can't be used to bypass the tier's analysis cap or rack up
   // unlimited Anthropic/Brave cost. Both checks are server-side — no client flag
   // is trusted for either the tier or the cap.
@@ -1155,8 +1198,8 @@ app.post('/api/analyze-model', async (req, res) => {
   const analysisUsage = await checkAndIncrementUsage(getRequestIdentifier(req, userId), analysisLimit);
   if (!analysisUsage.allowed) {
     return res.status(429).json({
-      error: 'Daily limit reached',
-      message: `You've used all ${analysisLimit} analyses for today on the ${tier} plan.`,
+      error: 'Monthly limit reached',
+      message: `You've used all ${analysisLimit} analyses for this month on the ${tier} plan.${tier === 'premium' ? ' Your analyses reset on the 1st.' : ' Upgrade for more, or wait for the reset on the 1st.'}`,
       usageRemaining: 0,
       tier
     });
@@ -1167,7 +1210,7 @@ app.post('/api/analyze-model', async (req, res) => {
   const fableUsedToday = await getUsageCount(fableId);
   const wantsFable = req.body?.useFable === true && tier !== 'free' && fableLimit > 0;
   // Decide whether to RUN Fable (under cap) but DON'T consume the daily use yet — a
-  // failed/timed-out Fable call must not burn one of the user's (1–5/day) Fable uses.
+  // failed/timed-out Fable call must not burn one of the user's monthly Fable uses.
   // We increment only after runSingleClaude actually returns below.
   const useFableModel = wantsFable && fableUsedToday < fableLimit;
   let fableRemaining = Math.max(0, fableLimit - fableUsedToday);
@@ -1208,22 +1251,22 @@ app.post('/api/analyze', async (req, res) => {
   const tier = await getUserTier(req.headers['authorization']);
   const userId = await getUserId(req.headers['authorization']);
 
-  // ── Daily analysis cap (all tiers: free 2 / pro 10 / premium 20) — BEFORE any AI calls ──
+  // ── Monthly analysis cap (free 6 / pro 50 / premium 100) — BEFORE any AI calls ──
   const analysisLimit = TIER_ANALYSIS_LIMIT[tier];
   const usage = await checkAndIncrementUsage(getRequestIdentifier(req, userId), analysisLimit);
   if (!usage.allowed) {
     return res.status(429).json({
-      error: 'Daily limit reached',
-      message: `You've used all ${analysisLimit} analyses for today on the ${tier} plan.${tier === 'premium' ? ' Try again tomorrow.' : ' Upgrade for a higher daily limit, or try again tomorrow.'}`,
+      error: 'Monthly limit reached',
+      message: `You've used all ${analysisLimit} analyses for this month on the ${tier} plan.${tier === 'premium' ? ' Your analyses reset on the 1st.' : ' Upgrade for more, or wait for the reset on the 1st.'}`,
       usageRemaining: 0,
       tier
     });
   }
   const usageRemaining = usage.remaining;
 
-  // ── Claude slot model selection (Haiku default, Fable 5 as a daily-capped swap) ──
+  // ── Claude slot model selection (Haiku default, Fable 5 as a monthly-capped, Premium-only swap) ──
   // Free tier is ALWAYS Haiku regardless of any client-sent preference (defensive —
-  // never trust the frontend). Paid tiers may swap to Fable 5 up to their daily cap;
+  // never trust the frontend). Paid tiers may swap to Fable 5 up to their monthly cap;
   // once the cap is hit we silently fall back to Haiku instead of erroring.
   const fableLimit = TIER_FABLE_LIMIT[tier] || 0;
   const fableId = `fable:${getRequestIdentifier(req, userId)}`;
@@ -1232,7 +1275,7 @@ app.post('/api/analyze', async (req, res) => {
   // Decide whether to RUN Fable now (under cap), but DON'T consume the daily use yet —
   // we only increment after the Claude(Fable) call actually succeeds (see the block
   // after Promise.allSettled), so a failed/timed-out Fable call never burns one of the
-  // user's (1–5/day) Fable uses. Once the cap is reached we silently fall back to Haiku.
+  // user's monthly Fable uses. Once the cap is reached we silently fall back to Haiku.
   const useFableModel = wantsFable && fableUsedToday < fableLimit;
   let fableRemaining = Math.max(0, fableLimit - fableUsedToday);
   const claudeModelId = useFableModel ? 'claude-fable-5' : CLAUDE_HAIKU_MODEL;
