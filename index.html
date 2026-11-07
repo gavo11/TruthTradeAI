@@ -107,6 +107,12 @@
   .fx-tab.sel { filter:brightness(1.12); box-shadow:0 0 0 1px var(--pp-dot,#3d85ff), 0 4px 14px rgba(0,0,0,.4); }
   .fx-hint { font-size:11px; color:rgba(255,255,255,.4); margin-top:10px; }
   .fx-panel { margin-top:10px; animation:fxIn .34s cubic-bezier(.2,.8,.2,1); }
+  .fx-row { transition:background-color .6s ease; }
+  .fx-row.fx-up { background:linear-gradient(90deg,rgba(0,200,150,.10),#0b1224 70%); }
+  .fx-row.fx-down { background:linear-gradient(90deg,rgba(255,107,107,.08),#0b1224 70%); }
+  .fx-sk { display:inline-block; border-radius:6px; background:linear-gradient(90deg,rgba(255,255,255,.04),rgba(255,255,255,.09),rgba(255,255,255,.04)); background-size:200% 100%; animation:fxSk 1.4s ease-in-out infinite; }
+  @keyframes fxSk { 0%{background-position:100% 0} 100%{background-position:-100% 0} }
+  .ag-name .fx-sk { display:block; }
   @keyframes fxIn { from { opacity:0; transform:translateY(-6px); clip-path:inset(0 0 100% 0); } to { opacity:1; transform:none; clip-path:inset(0 0 0 0); } }
   .fx-x { margin-left:8px; width:24px; height:24px; border-radius:7px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); color:rgba(255,255,255,.6); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:12px; line-height:1; font-family:inherit; }
   .fx-x:hover { color:#fff; background:rgba(255,255,255,.09); }
@@ -122,7 +128,7 @@
   .fx-pct { font-size:11.5px; font-weight:800; color:#fff; flex-shrink:0; display:inline-flex; align-items:center; }
   .fx-d { font-size:9.5px; font-weight:800; margin-left:4px; }
   .fx-bar { height:5px; background:rgba(255,255,255,.05); border-radius:4px; overflow:hidden; margin-top:6px; }
-  .fx-bar > div { height:100%; border-radius:4px; transition:width .45s cubic-bezier(.2,.8,.2,1); }
+  .fx-bar > div { height:100%; border-radius:4px; }
   .fx-r { font-size:11px; color:rgba(255,255,255,.55); line-height:1.55; margin-top:5px; }
   .fx-lock { position:relative; margin-top:2px; min-height:150px; }
   .fx-lock .fx-ghost { filter:blur(4px); opacity:.5; pointer-events:none; user-select:none; }
@@ -1419,27 +1425,48 @@ function closeFactorPanel(){
   state.factorModel = null;
   render(); animateRing(from);
 }
-// Risk change: re-render, then slide factor rows from their old spots to the new order
-// and grow/shrink the weight bars, so the re-weighting is visible.
+// Risk change: re-render, then glide every factor row from its old spot to its new one,
+// grow/shrink the bars and count the % up or down, so you can watch the re-sort happen.
+const FX_MOVE_MS = 750;
 function setRisk(r){
+  if (state.risk === r) return;
   const before = {};
-  document.querySelectorAll('.fx-row[data-k]').forEach(el => {
-    const bar = el.querySelector('.fx-bar > div');
-    before[el.dataset.k] = { top: el.getBoundingClientRect().top, w: bar ? bar.style.width : null };
+  document.querySelectorAll('.fx-row[data-k]').forEach((el, idx) => {
+    const bar = el.querySelector('.fx-bar > div'), num = el.querySelector('.fx-w');
+    before[el.dataset.k] = { top: el.getBoundingClientRect().top, idx, w: bar ? bar.style.width : null, n: num ? parseInt(num.textContent, 10) : null };
   });
   const from = ringValueNow();
-  state.risk = r; render(); animateRing(from);
-  document.querySelectorAll('.fx-row[data-k]').forEach(el => {
+  const sy = window.scrollY;
+  state.risk = r; render();
+  if (window.scrollY !== sy) window.scrollTo(0, sy);
+  // the panel's slide-open animation is only for opening it, not for every re-render
+  document.querySelectorAll('.fx-panel, .fx-deep, .ag-detail').forEach(e => { e.style.animation = 'none'; });
+  animateRing(from);
+  const ease = 'cubic-bezier(.22,.8,.24,1)';
+  document.querySelectorAll('.fx-row[data-k]').forEach((el, idx) => {
     const b = before[el.dataset.k]; if (!b) return;
     const dy = b.top - el.getBoundingClientRect().top;
-    const bar = el.querySelector('.fx-bar > div');
+    const bar = el.querySelector('.fx-bar > div'), num = el.querySelector('.fx-w');
     const newW = bar ? bar.style.width : null;
-    if (dy) { el.style.transition = 'none'; el.style.transform = `translateY(${dy}px)`; }
-    if (bar && b.w) bar.style.width = b.w;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      el.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1)'; el.style.transform = '';
-      if (bar && newW) bar.style.width = newW;
-    }));
+    const moved = idx - b.idx; // negative = moved up the list
+    el.style.transition = 'none'; el.style.transform = dy ? `translateY(${dy}px)` : '';
+    el.style.zIndex = moved < 0 ? 3 : moved > 0 ? 1 : 2;
+    if (bar && b.w) { bar.style.transition = 'none'; bar.style.width = b.w; }
+    if (moved) el.classList.add(moved < 0 ? 'fx-up' : 'fx-down');
+    void el.offsetHeight;
+    requestAnimationFrame(() => {
+      el.style.transition = `transform ${FX_MOVE_MS}ms ${ease}`; el.style.transform = '';
+      if (bar && newW) { bar.style.transition = `width ${FX_MOVE_MS}ms ${ease}`; bar.style.width = newW; }
+    });
+    if (num && b.n != null) {
+      const to = parseInt(num.textContent, 10), t0 = performance.now();
+      if (!isNaN(to) && to !== b.n) {
+        num.textContent = b.n + '%';
+        const step = t => { const p = Math.min(1, (t - t0) / FX_MOVE_MS), e = 1 - Math.pow(1 - p, 3); num.textContent = Math.round(b.n + (to - b.n) * e) + '%'; if (p < 1) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+      }
+    }
+    setTimeout(() => { el.style.zIndex = ''; el.classList.remove('fx-up', 'fx-down'); }, FX_MOVE_MS + 500);
   });
 }
 const HZ = { L:['Low','#e3b341'], M:['Medium','#00c896'], H:['High','#1e9e4a'] };
@@ -1465,7 +1492,7 @@ function fxRowsHTML(rows, prevFactors){
       <div class="fx-top">
         <span class="fx-tag" style="color:${dir.c};background:${dir.c}1f;border-color:${dir.c}55">${dir.label}</span>
         <span class="fx-name">${escHtml(f.f)}</span>
-        <span class="fx-pct tnum">${f.w}%${delta}</span>
+        <span class="fx-pct tnum"><span class="fx-w">${f.w}%</span>${delta}</span>
       </div>
       <div class="fx-bar"><div style="width:${Math.round(f.w / maxW * 100)}%;background:linear-gradient(90deg,${dir.c}99,${dir.c})"></div></div>
       ${f.r || deep || isNew ? `<p class="fx-r">${escHtml(f.r||'')}${isNew ? '<span class="fx-new">NEW</span>' : ''}${deep ? `<button class="fx-more-btn" onclick="this.closest('.fx-row').classList.toggle('open')"><span class="m1">More ▾</span><span class="m2">Less ▴</span></button>` : ''}</p>` : ''}
@@ -1594,6 +1621,16 @@ function agreeHTML(ai){
     <div class="ag-tug-l"><span>Bull case <b>${bullPct}%</b> of total weight</span><span>Bear case <b>${100-bullPct}%</b></span></div>
     <div style="margin-top:8px">${rows}</div>
     ${lockNote}
+  </div>`;
+}
+
+function agreeSkeletonHTML(){
+  const row = (w1, w2) => `<div class="ag-row" style="cursor:default"><div class="ag-top"><span class="fx-sk" style="width:44px;height:20px"></span><span class="ag-name"><span class="fx-sk" style="width:${w1}%;height:14px"></span><span class="fx-sk" style="width:${w2}%;height:10px;margin-top:6px"></span></span><div class="ag-votes">${'<span class="fx-sk" style="width:30px;height:16px"></span>'.repeat(3)}</div></div></div>`;
+  return `<div class="card" style="padding:22px 22px 18px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:center;margin-bottom:6px"><p class="eyebrow">What the models agree on</p></div>
+    <p style="text-align:center;font-size:11.5px;color:rgba(255,255,255,.45);margin-bottom:12px">${state.loading ? 'Waiting on the models…' : 'Run an analysis to see where the models agree and split'}</p>
+    <div class="ag-tug"><div class="fx-sk" style="width:100%;height:10px;border-radius:6px"></div></div>
+    <div style="margin-top:8px">${row(55,25)}${row(70,20)}${row(45,30)}${row(60,22)}</div>
   </div>`;
 }
 
@@ -2312,7 +2349,7 @@ function render(){
         </div>`;
       })()}
 
-      ${hasFactorData(state.aiData[state.ticker]) ? agreeHTML(state.aiData[state.ticker]) : `
+      ${hasFactorData(state.aiData[state.ticker]) ? agreeHTML(state.aiData[state.ticker]) : (state.loading || !state.aiData[state.ticker] || !(state.aiData[state.ticker].models || []).length) ? agreeSkeletonHTML() : `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px">
         <div>
           <div class="card" style="padding:22px 24px;height:100%;border:1px solid rgba(0,200,150,.15)">
