@@ -2,12 +2,12 @@
 
 > QuantCall AI is a web app that runs a stock ticker through several AI models at once and shows where they agree and where they disagree.
 
-QuantCall AI sends any US-listed ticker to multiple AI models side by side: Claude, GPT and Gemini on the free plan, plus Perplexity and Grok on paid plans. Each model researches the stock with live web search. The results page shows each model's verdict and reasoning, a combined consensus score, and the points where the models split. It is a research and education tool, not financial advice, and it does not place trades or connect to brokerages.
+QuantCall AI sends any US-listed ticker to multiple AI models side by side: Claude, GPT and Gemini on the free plan, plus Perplexity and Grok on paid plans. Each model researches the stock with live web search. The results page shows each model's score with the weighted factors behind it, a combined consensus score, and a "What the models agree on" view of where the models agree and split. A typical analysis takes about 19 seconds. It is a research and education tool, not financial advice, and it does not place trades or connect to brokerages.
 
 ## Plans
-- Free: 2 analyses per day, 3 models (Claude, GPT, Gemini), 2 watchlist slots
-- Pro: $8.99/month, 10 analyses per day, adds Perplexity, Grok and X sentiment
-- Premium: $19.99/month, 20 analyses per day, unlimited watchlist
+- Free: 2 analyses per day, 3 models (Claude, GPT, Gemini), top 3 weighted factors per model, 2 watchlist slots
+- Pro: $8.99/month, 10 analyses per day, all 5 models (adds Perplexity and Grok), 6 weighted factors per model, X sentiment, 1 Fable 5 run per day
+- Premium: $19.99/month, 20 analyses per day, every factor explained in detail, 5 Fable 5 runs per day, unlimited watchlist
 
 ## Links
 - [Home](https://www.quantcallai.com/)
@@ -15,6 +15,7 @@ QuantCall AI sends any US-listed ticker to multiple AI models side by side: Clau
 - [About](https://www.quantcallai.com/about.html)
 - [Contact](https://www.quantcallai.com/contact.html)
 - [Blog](https://www.quantcallai.com/blog/)
+- [FAQ](https://www.quantcallai.com/faq/): how the consensus score, weighted factors and risk setting work, how to switch Claude to Fable 5, and what each plan includes
 
 ## Blog
 - [Multi-model AI stock analysis: what happens when you run 5 AIs on the same stock](https://www.quantcallai.com/blog/multi-model-ai-stock-analysis/): Multi-model AI stock analysis runs one stock through several AI models and compares where they agree and split. Real 2026 runs of Claude, GPT, Gemini, Perplexity and Grok, plus the tools that do it.

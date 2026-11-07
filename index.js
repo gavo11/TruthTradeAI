@@ -45,13 +45,13 @@ const CLAUDE_HAIKU_MODEL = 'claude-haiku-5-5';
 // Haiku 5.5's thinking tokens draw from max_tokens, so the old 650 (sized for Haiku 4.5's
 // JSON-only output) could truncate the JSON verdict. 2000 leaves room for low-effort
 // thinking plus the proShortPrompt JSON (watch the [Claude][cost] log for stop at the cap).
-const HAIKU_MAX_TOKENS = 2000;       // paid Haiku (proShortPrompt + live context)
+const HAIKU_MAX_TOKENS = 3500;       // paid Haiku (proShortPrompt + live context)
 // Free Haiku also uses proShortPrompt (with a `reasoning` field) so Free users can read
 // Claude's reasoning in the unlocked "individual model analysis" reveal — same headroom.
-const HAIKU_FREE_MAX_TOKENS = 2000;  // free Haiku (proShortPrompt + reasoning)
+const HAIKU_FREE_MAX_TOKENS = 2600;  // free Haiku (proShortPrompt + reasoning)
 // Real Fable 5 usage measured ~392 output tokens (~$0.033/call). 2200 is generous
 // headroom (~5.5x actual) while capping worst-case cost far below the old 8000.
-const FABLE_MAX_TOKENS = 2200;
+const FABLE_MAX_TOKENS = 3500;
 
 // ── Weighted factors (rework item 1) ───────────────────────────────────────
 // Each model returns a short list of the factors it weighed (name, direction, weight,
@@ -995,7 +995,7 @@ async function runModelStandalone(modelName, ticker, tier, searchBlock, livePric
   if (modelName === 'GPT-4o') {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.OPENAI_API_KEY}` },
-      body: JSON.stringify({ model: GPT_API_MODEL, reasoning_effort: 'low', max_completion_tokens: 2500, messages: [
+      body: JSON.stringify({ model: GPT_API_MODEL, reasoning_effort: 'low', max_completion_tokens: 3500, messages: [
         { role: 'system', content: sys },
         { role: 'user', content: pc + withLiveSearch(ticker, searchBlock, proShort) }
       ] })
@@ -1016,7 +1016,7 @@ async function runModelStandalone(modelName, ticker, tier, searchBlock, livePric
   if (modelName === 'Perplexity') {
     const res = await fetch('https://api.perplexity.ai/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
-      body: JSON.stringify({ model: 'sonar', max_tokens: 1200, messages: [
+      body: JSON.stringify({ model: 'sonar', max_tokens: 1800, messages: [
         { role: 'system', content: sys },
         { role: 'user', content: pc + proShort }
       ] })
@@ -1030,7 +1030,7 @@ async function runModelStandalone(modelName, ticker, tier, searchBlock, livePric
   if (modelName === 'Grok') {
     const res = await fetch('https://api.x.ai/v1/chat/completions', {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.GROK_API_KEY}` },
-      body: JSON.stringify({ model: GROK_API_MODEL, reasoning_effort: 'low', max_tokens: 1500, messages: [
+      body: JSON.stringify({ model: GROK_API_MODEL, reasoning_effort: 'low', max_tokens: 2500, messages: [
         { role: 'system', content: sys },
         { role: 'user', content: pc + withLiveSearch(ticker, searchBlock, proShort) }
       ] })
@@ -1363,7 +1363,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
         // GPT-5 family uses `max_completion_tokens` (it rejects the old `max_tokens`). Set high
         // enough that reasoning + JSON never hit the ceiling (finish=length ⇒ truncated). You
         // only pay for tokens actually generated, so a high cap costs nothing when output is short.
-        max_completion_tokens: 2500,
+        max_completion_tokens: 3500,
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, gptClaudePrompt) }
@@ -1404,7 +1404,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.PERPLEXITY_API_KEY}` },
       body: JSON.stringify({
         model: 'sonar',
-        max_tokens: 1200, // was 450; 12-factor premium list needs headroom (only billed for tokens used)
+        max_tokens: 1800, // was 450; Premium factor detail needs headroom (only billed for tokens used)
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + proShortPrompt }
@@ -1428,7 +1428,7 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
       body: JSON.stringify({
         model: GROK_API_MODEL,
         reasoning_effort: 'low', // grok-4.3 is a reasoning model; keep effort low for cost/latency
-        max_tokens: 1500,        // headroom so reasoning + JSON don't truncate (was 450)
+        max_tokens: 2500,        // headroom so reasoning + JSON (+ Premium detail) don't truncate
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: priceContext(ticker, livePrice) + withLiveSearch(ticker, searchBlock, proShortPrompt) }
