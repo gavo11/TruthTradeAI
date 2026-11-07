@@ -102,6 +102,75 @@
   .pro-lock:hover { transform:translateY(-1px); box-shadow:0 0 0 1px rgba(255,215,0,.12), 0 8px 22px rgba(120,90,0,.26); }
 
   .pro-panel { position:relative; background:#0b1224; border:1px solid rgba(255,255,255,.07); border-radius:12px; padding:13px 15px 13px 16px; box-shadow:0 8px 24px rgba(0,0,0,.4); overflow:hidden; text-align:left; }
+  /* Individual model analysis: weighted factor panel */
+  .fx-tabs { display:flex; flex-wrap:wrap; gap:7px; justify-content:center; margin-top:10px; }
+  .fx-tab.sel { filter:brightness(1.12); box-shadow:0 0 0 1px var(--pp-dot,#3d85ff), 0 4px 14px rgba(0,0,0,.4); }
+  .fx-hint { font-size:11px; color:rgba(255,255,255,.4); margin-top:10px; }
+  .fx-panel { margin-top:10px; animation:fxIn .34s cubic-bezier(.2,.8,.2,1); }
+  @keyframes fxIn { from { opacity:0; transform:translateY(-6px); clip-path:inset(0 0 100% 0); } to { opacity:1; transform:none; clip-path:inset(0 0 0 0); } }
+  .fx-x { margin-left:8px; width:24px; height:24px; border-radius:7px; border:1px solid rgba(255,255,255,.12); background:rgba(255,255,255,.04); color:rgba(255,255,255,.6); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:12px; line-height:1; font-family:inherit; }
+  .fx-x:hover { color:#fff; background:rgba(255,255,255,.09); }
+  .fx-sum { font-size:12px; color:rgba(255,255,255,.82); line-height:1.6; margin-bottom:10px; }
+  .fx-risk { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .fx-risk-l { font-size:10px; font-weight:700; letter-spacing:.1em; color:rgba(255,255,255,.4); text-transform:uppercase; margin-right:2px; }
+  .fx-note { font-size:10.5px; color:rgba(255,255,255,.42); margin-bottom:4px; }
+  .fx-row { padding:9px 0; border-top:1px solid rgba(255,255,255,.05); position:relative; background:#0b1224; }
+  .fx-list .fx-row:first-child { border-top:none; }
+  .fx-top { display:flex; align-items:center; gap:8px; }
+  .fx-tag { font-size:9.5px; font-weight:800; letter-spacing:.04em; padding:2px 7px; border-radius:6px; border:1px solid; white-space:nowrap; flex-shrink:0; }
+  .fx-name { font-size:12px; font-weight:700; color:#fff; flex:1; min-width:0; }
+  .fx-pct { font-size:11.5px; font-weight:800; color:#fff; flex-shrink:0; display:inline-flex; align-items:center; }
+  .fx-d { font-size:9.5px; font-weight:800; margin-left:4px; }
+  .fx-bar { height:5px; background:rgba(255,255,255,.05); border-radius:4px; overflow:hidden; margin-top:6px; }
+  .fx-bar > div { height:100%; border-radius:4px; transition:width .45s cubic-bezier(.2,.8,.2,1); }
+  .fx-r { font-size:11px; color:rgba(255,255,255,.55); line-height:1.55; margin-top:5px; }
+  .fx-lock { position:relative; margin-top:2px; min-height:150px; }
+  .fx-lock .fx-ghost { filter:blur(4px); opacity:.5; pointer-events:none; user-select:none; }
+  .fx-lock .fx-ghost .fx-row { background:transparent; }
+  .fx-cta { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; text-align:center; padding:0 12px; }
+  .fx-more { display:block; width:100%; margin-top:8px; padding:8px 12px; border-radius:10px; font-size:11.5px; font-weight:700; text-align:center; color:#5a9bff; background:rgba(61,133,255,.08); border:1px solid rgba(61,133,255,.25); cursor:pointer; font-family:inherit; }
+  .fx-more:hover { background:rgba(61,133,255,.14); }
+  /* Spotlight: soft glow in the score colour behind the wheel (colour fades with the ring) */
+  .donut-wrap .cglow { --g:0,200,150; position:absolute; left:50%; top:50%; width:440px; height:440px; transform:translate(-50%,-50%); pointer-events:none; z-index:0; border-radius:50%;
+    background:radial-gradient(closest-side, rgba(var(--g),.22), rgba(var(--g),.08) 45%, transparent 72%); }
+  .donut-wrap .cglow::after { content:""; position:absolute; left:50%; top:50%; width:300px; height:300px; transform:translate(-50%,-50%); border-radius:50%;
+    background:repeating-radial-gradient(circle, transparent 0 26px, rgba(255,255,255,.035) 26px 27px);
+    -webkit-mask:radial-gradient(closest-side,#000 40%,transparent); mask:radial-gradient(closest-side,#000 40%,transparent); }
+  .donut-wrap > svg, .donut-wrap > div:not(.cglow) { position:relative; z-index:1; }
+  .donut-wrap > div:not(.cglow) { position:absolute !important; }
+  /* Premium detail: pre-generated, opens instantly */
+  .fx-more-btn { margin-left:6px; background:none; border:none; padding:0; font-family:inherit; font-size:10.5px; font-weight:700; color:#ffd700; cursor:pointer; }
+  .fx-more-btn .m2 { display:none; }
+  .fx-row.open .fx-more-btn .m1 { display:none; } .fx-row.open .fx-more-btn .m2 { display:inline; }
+  .fx-deep { display:none; margin-top:9px; padding:10px 11px; border-radius:10px; background:linear-gradient(180deg,rgba(255,215,0,.06),rgba(255,255,255,.02)); border:1px solid rgba(255,215,0,.18); animation:fxIn .28s cubic-bezier(.2,.8,.2,1); }
+  .fx-row.open .fx-deep { display:block; }
+  .fx-deep p { font-size:11.5px; color:rgba(255,255,255,.8); line-height:1.6; }
+  .fx-deep .fx-stat { font-size:13px; font-weight:800; color:#fff; }
+  .fx-k { font-size:9.5px; font-weight:800; letter-spacing:.1em; color:rgba(255,255,255,.4); text-transform:uppercase; margin:9px 0 4px; }
+  .fx-hz { display:flex; gap:6px; }
+  .fx-hz span { flex:1; text-align:center; font-size:10.5px; font-weight:700; padding:5px 0; border-radius:8px; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.07); color:rgba(255,255,255,.5); }
+  .fx-hz span b { display:block; font-size:12px; }
+  .fx-new { display:inline-block; font-size:9px; font-weight:800; padding:1px 6px; border-radius:6px; color:#5a9bff; background:rgba(61,133,255,.12); border:1px solid rgba(61,133,255,.3); margin-left:6px; vertical-align:1px; }
+  .fx-hdr-btn { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:7px; padding:2px 7px; font-family:inherit; font-size:10px; font-weight:700; letter-spacing:.12em; cursor:pointer; }
+  /* What the models agree on */
+  .ag-tug { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 6px; }
+  .ag-tug-l { display:flex; justify-content:space-between; font-size:11px; color:rgba(255,255,255,.55); }
+  .ag-tug-l b { color:#fff; }
+  .ag-row { padding:10px 0; border-top:1px solid rgba(255,255,255,.05); cursor:pointer; }
+  .ag-row:first-child { border-top:none; }
+  .ag-top { display:flex; align-items:center; gap:8px; }
+  .ag-name { font-size:12.5px; font-weight:700; color:#fff; flex:1; min-width:0; }
+  .ag-cat { display:block; font-size:10px; font-weight:600; color:rgba(255,255,255,.4); margin-top:1px; }
+  .ag-votes { display:flex; gap:3px; flex-wrap:wrap; justify-content:flex-end; }
+  .ag-votes i { font-style:normal; font-size:8.5px; font-weight:800; padding:2px 4px; border-radius:5px; }
+  .ag-chev { font-size:10px; color:rgba(255,255,255,.4); transition:transform .2s; }
+  .ag-row.open .ag-chev { transform:rotate(180deg); }
+  .ag-sub { font-size:11px; color:rgba(255,255,255,.5); margin-top:5px; }
+  .ag-detail { display:none; margin-top:8px; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.06); }
+  .ag-row.open .ag-detail { display:block; animation:fxIn .28s cubic-bezier(.2,.8,.2,1); }
+  .ag-why { display:flex; align-items:center; gap:7px; padding:4px 0; }
+  .ag-m { font-size:10.5px; font-weight:800; color:rgba(255,255,255,.6); width:46px; flex-shrink:0; }
+  .ag-r { font-size:11px; color:rgba(255,255,255,.7); line-height:1.45; }
   .pro-panel::before { content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent,#3d85ff); }
 
   .pro-card { position:relative; background:linear-gradient(180deg,#16203a,#121a2e); border:1px solid rgba(255,215,0,.22); border-radius:16px; box-shadow:0 0 0 1px rgba(255,215,0,.05), 0 14px 36px rgba(0,0,0,.45); }
@@ -540,7 +609,7 @@ function openSavedAnalysis(ticker) {
   state.aiData[ticker] = ai;
   state.liveData[ticker] = liveDataFromAI(ai);
   state.viewingSavedDate = entry.updated_at || entry.created_at || null;
-  state.expandedReasoning = {}; state.expandedBullItems = {}; state.expandedBearItems = {}; state.expandedNewsItems = {};
+  state.expandedReasoning = {}; state.factorModel = null; state.expandedBullItems = {}; state.expandedBearItems = {}; state.expandedNewsItems = {};
   state.modelRetry = {}; state.modelRetryMsg = {}; // a stored snapshot has no in-flight retries
   state.loading = false; state.watchlistOpen = false; state.usageError = null;
   window.scrollTo(0, 0);
@@ -892,7 +961,7 @@ function getMomentumScore(stock, tf){
 function getMomentumLabel(s){ return s>=75?"Strong Bullish":s>=60?"Bullish":s>=45?"Neutral":s>=30?"Bearish":"Strong Bearish"; }
 function momentumColor(s){ return s>=65?"#00c896":s>=50?"#e3b341":s>=35?"#ff8c42":"#ff4757"; }
 
-let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 5.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false,googleLoading:false,modelRetry:{},modelRetryMsg:{}};
+let state={ticker:"",risk:"moderate",tf:"1M",aiTf:"overall",sentimentTab:"chart",authModal:false,pricingModal:false,resumeCheckout:false,watchlistOpen:false,savedAnalyses:[],viewingSavedDate:null,savingAnalysis:false,pricingNote:'',checkoutPlan:'pro',xSent:null,xSentLoading:false,xSentError:null,xSentRemaining:null,authMode:"login",authEmail:"",authPassword:"",authError:"",searchInput:"",loading:false,liveData:{},aiData:{},tier:'free',expandedReasoning:{},expandedBullItems:{},expandedBearItems:{},expandedNewsItems:{},usageRemaining:null,usageError:null,useFable:false,fableRemaining:null,fableLimit:0,claudeModelName:'Claude Haiku 5.5',modelPopup:null,claudeReanalyzing:false,fableConfirm:false,claudeError:null,analyzeError:null,portalLoading:false,googleLoading:false,modelRetry:{},modelRetryMsg:{},factorModel:null};
 
 // tier 'loading' = possibly signed in, plan not read yet. Shown as a neutral placeholder,
 // never as Free (no upgrade prompts / limits). isPaid() is false for it, so nothing unlocks.
@@ -1016,6 +1085,9 @@ async function runClaudeSwitch(useFableModel){
         ...prev, model: 'Claude', error: undefined,
         bullScore: json.bullScore ?? prev.bullScore ?? 50,
         reasoning: json.reasoning ?? prev.reasoning,
+        summary: json.summary ?? prev.summary,
+        factors: json.factors ?? prev.factors,
+        factorLimit: json.factorLimit ?? prev.factorLimit,
         confidence: json.confidence ?? prev.confidence,
         bullScore1W: json.bullScore1W ?? prev.bullScore1W,
         bullScore1M: json.bullScore1M ?? prev.bullScore1M,
@@ -1260,7 +1332,272 @@ function infoBtn(tooltipTitle, tooltipText) {
     onblur="hideTip()">i</button>`;
 }
 
-function donutSVG(bull,score,label,loading){
+// ── Individual model analysis: weighted factors (rework item 1) ──────────────────────
+// Each model returns factors [{f:name, d:direction, w:weight%, r:reason}] that sum to 100.
+// Risk tolerance re-weights them HERE in the browser (no extra API cost) and re-sorts.
+const FACTOR_DIR = {
+  sb:  { label:'Strong bull', c:'#1e9e4a' },
+  b:   { label:'Bullish',     c:'#00c896' },
+  n:   { label:'Neutral',     c:'#e3b341' },
+  br:  { label:'Bearish',     c:'#ff6b6b' },
+  sbr: { label:'Strong bear', c:'#d62839' }
+};
+const TIER_FACTORS = { free:3, pro:6, premium:6 };
+const GLOW_STOPS = [[0,[214,40,57]],[25,[255,107,107]],[40,[227,179,65]],[60,[0,200,150]],[75,[30,158,74]],[100,[30,158,74]]];
+function glowRGB(v){
+  v = Math.max(0, Math.min(100, v));
+  for (let i = 1; i < GLOW_STOPS.length; i++) {
+    const [b, cb] = GLOW_STOPS[i], [a, ca] = GLOW_STOPS[i-1];
+    if (v <= b) { const t = (v - a) / (b - a || 1); return ca.map((x, j) => Math.round(x + (cb[j] - x) * t)).join(','); }
+  }
+  return '30,158,74';
+}
+function setGlow(v){ const g = document.querySelector('.cglow'); if (g) g.style.setProperty('--g', glowRGB(v)); }
+function scoreHex(s){ return s>=75?'#1e9e4a':s>=60?'#00c896':s>=40?'#e3b341':s>=25?'#ff6b6b':'#d62839'; }
+// Conservative leans on the bear case, aggressive on the bull case, moderate = model's own weights.
+const FX_RISK_MULT = {
+  conservative: { sb:.8,  b:.9,  n:1, br:1.2, sbr:1.35 },
+  moderate:     { sb:1,   b:1,   n:1, br:1,   sbr:1 },
+  aggressive:   { sb:1.35,b:1.2, n:1, br:.9,  sbr:.8 }
+};
+function riskWeightedFactors(factors, risk){
+  const mult = FX_RISK_MULT[risk] || FX_RISK_MULT.moderate;
+  const rows = (Array.isArray(factors) ? factors : []).filter(f => f && f.f).map((f, i) => {
+    const base = Math.max(0, Number(f.w) || 0);
+    return { ...f, _i: i, base, raw: base * (mult[f.d] ?? 1) };
+  });
+  const tot = rows.reduce((s, f) => s + f.raw, 0);
+  if (!tot) { rows.forEach(f => { f.w = Math.round(100 / (rows.length || 1)); f.delta = 0; }); return rows; }
+  const exact = rows.map(f => f.raw * 100 / tot);
+  const fl = exact.map(Math.floor);
+  let rem = 100 - fl.reduce((a, b) => a + b, 0);
+  exact.map((x, i) => [i, x - fl[i]]).sort((a, b) => b[1] - a[1]).forEach(([i]) => { if (rem > 0) { fl[i]++; rem--; } });
+  rows.forEach((f, i) => { f.w = fl[i]; f.delta = fl[i] - Math.round(f.base); });
+  return rows.sort((a, b) => b.w - a.w || a._i - b._i);
+}
+// Score the ring shows while a model is selected (same risk adjustment as the chips above).
+function focusedRing(ai, adj){
+  const name = state.factorModel;
+  if (!name || !ai || state.loading) return null;
+  if (['Perplexity','Grok'].includes(name) && !isPaid()) return null;
+  const m = (ai.models || []).find(x => x && x.model === name && !x.error);
+  if (!m || m.bullScore == null) return null;
+  const s = Math.min(99, Math.max(1, Math.round(m.bullScore + (adj || 0))));
+  return { score: s, color: scoreHex(s), label: chipLabel(name).toUpperCase() };
+}
+function ringValueNow(){
+  const el = document.querySelector('.donut-wrap .tnum');
+  const v = parseInt(el && el.textContent, 10);
+  return isNaN(v) ? null : v;
+}
+// Sweep the ring + number from the old value to whatever render() just drew.
+function animateRing(from){
+  const wrap = document.querySelector('.donut-wrap'); if (!wrap || from == null) return;
+  const cs = wrap.querySelectorAll('svg circle'); const num = wrap.querySelector('.tnum');
+  if (cs.length < 3 || !num) return;
+  const to = parseInt(num.textContent, 10); if (isNaN(to) || to === from) return;
+  const C = 2 * Math.PI * 70, gap = C * 0.015;
+  const set = v => {
+    const bd = (v / 100) * C;
+    cs[1].setAttribute('stroke-dasharray', `${C-bd-gap} ${bd+gap}`);
+    cs[1].setAttribute('stroke-dashoffset', `${-(bd+gap/2)}`);
+    cs[2].setAttribute('stroke-dasharray', `${bd-gap/2} ${C-bd+gap/2}`);
+    num.textContent = Math.round(v) + '%';
+    setGlow(v);
+  };
+  const t0 = performance.now(), dur = 520;
+  const step = t => { const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3); set(from + (to - from) * e); if (p < 1) requestAnimationFrame(step); };
+  set(from); requestAnimationFrame(step);
+}
+function selectFactorModel(name){
+  const from = ringValueNow();
+  state.factorModel = state.factorModel === name ? null : name;
+  render(); animateRing(from);
+}
+function closeFactorPanel(){
+  const from = ringValueNow();
+  state.factorModel = null;
+  render(); animateRing(from);
+}
+// Risk change: re-render, then slide factor rows from their old spots to the new order
+// and grow/shrink the weight bars, so the re-weighting is visible.
+function setRisk(r){
+  const before = {};
+  document.querySelectorAll('.fx-row[data-k]').forEach(el => {
+    const bar = el.querySelector('.fx-bar > div');
+    before[el.dataset.k] = { top: el.getBoundingClientRect().top, w: bar ? bar.style.width : null };
+  });
+  const from = ringValueNow();
+  state.risk = r; render(); animateRing(from);
+  document.querySelectorAll('.fx-row[data-k]').forEach(el => {
+    const b = before[el.dataset.k]; if (!b) return;
+    const dy = b.top - el.getBoundingClientRect().top;
+    const bar = el.querySelector('.fx-bar > div');
+    const newW = bar ? bar.style.width : null;
+    if (dy) { el.style.transition = 'none'; el.style.transform = `translateY(${dy}px)`; }
+    if (bar && b.w) bar.style.width = b.w;
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      el.style.transition = 'transform .45s cubic-bezier(.2,.8,.2,1)'; el.style.transform = '';
+      if (bar && newW) bar.style.width = newW;
+    }));
+  });
+}
+const HZ = { L:['Low','#e3b341'], M:['Medium','#00c896'], H:['High','#1e9e4a'] };
+function fxDeepHTML(f){
+  if (!f.x && !f.k && !f.h && !f.fl) return '';
+  const hz = f.h && f.h.length === 3 ? `<div class="fx-k">When it matters</div><div class="fx-hz">${['1 Week','1 Month','1 Year'].map((l,i)=>{const z=HZ[f.h[i]]||HZ.L;return `<span>${l}<b style="color:${z[1]}">${z[0]}</b></span>`;}).join('')}</div>` : '';
+  return `<div class="fx-deep">
+    ${f.x ? `<p>${escHtml(f.x)}</p>` : ''}
+    ${f.k ? `<div class="fx-k">Key number</div><p class="fx-stat">${escHtml(f.k)}</p>` : ''}
+    ${hz}
+    ${f.fl ? `<div class="fx-k">What would flip it</div><p>${escHtml(f.fl)}</p>` : ''}
+  </div>`;
+}
+function fxRowsHTML(rows, prevFactors){
+  const maxW = Math.max(1, ...rows.map(f => f.w));
+  const prev = Array.isArray(prevFactors) && prevFactors.length ? prevFactors : null;
+  return rows.map(f => {
+    const dir = FACTOR_DIR[f.d] || FACTOR_DIR.n;
+    const delta = state.risk !== 'moderate' && f.delta ? `<span class="fx-d" style="color:${f.delta>0?'#00c896':'#ff6b6b'}">${f.delta>0?'▲':'▼'}${Math.abs(f.delta)}</span>` : '';
+    const isNew = prev && !prev.some(p => (p.c && p.c !== 'Other' && p.c === f.c) || String(p.f||'').toLowerCase() === String(f.f||'').toLowerCase());
+    const deep = fxDeepHTML(f);
+    return `<div class="fx-row" data-k="${f._i}">
+      <div class="fx-top">
+        <span class="fx-tag" style="color:${dir.c};background:${dir.c}1f;border-color:${dir.c}55">${dir.label}</span>
+        <span class="fx-name">${escHtml(f.f)}</span>
+        <span class="fx-pct tnum">${f.w}%${delta}</span>
+      </div>
+      <div class="fx-bar"><div style="width:${Math.round(f.w / maxW * 100)}%;background:linear-gradient(90deg,${dir.c}99,${dir.c})"></div></div>
+      ${f.r || deep || isNew ? `<p class="fx-r">${escHtml(f.r||'')}${isNew ? '<span class="fx-new">NEW</span>' : ''}${deep ? `<button class="fx-more-btn" onclick="this.closest('.fx-row').classList.toggle('open')"><span class="m1">More ▾</span><span class="m2">Less ▴</span></button>` : ''}</p>` : ''}
+      ${deep}
+    </div>`;
+  }).join('');
+}
+// The same model's factors from the user's last saved analysis of this ticker (for NEW tags).
+function prevFactorsFor(model){
+  if (state.viewingSavedDate) return null;
+  const entry = (state.savedAnalyses || []).find(s => s.ticker === state.ticker);
+  const m = entry && entry.analysis_data && (entry.analysis_data.models || []).find(x => x && x.model === model);
+  return m && Array.isArray(m.factors) && m.factors.length ? m.factors : null;
+}
+// Blurred placeholder rows behind an upgrade CTA. Generic names only, never real output.
+function fxGhostRows(n){
+  const names = ['Revenue growth trend','Valuation vs peers','Insider activity','Options flow','Guidance revisions','Sector momentum','Balance sheet','Short interest'];
+  const dirs = ['b','br','n','sb','sbr','b','br','n'];
+  return fxRowsHTML(Array.from({ length: n }, (_, i) => ({ _i: 'g' + i, f: names[i % names.length], d: dirs[i % dirs.length], w: 18 - i * 2, r: 'Upgrade to see this factor and why it matters.' })));
+}
+function fxRiskButtons(){
+  return `<div class="fx-risk">
+    <span class="fx-risk-l">Risk</span>
+    ${["conservative","moderate","aggressive"].map(r=>{
+      const active=state.risk===r;
+      const c={conservative:"#3d85ff",moderate:"#e3b341",aggressive:"#ff4757"}[r];
+      return`<button onclick="setRisk('${r}')" class="seg-btn" style="padding:5px 11px;border-radius:9px;font-size:11px;font-weight:700;text-transform:capitalize;background:${active?`${c}1f`:"rgba(255,255,255,.03)"};border:1.5px solid ${active?c:"rgba(255,255,255,.08)"};color:${active?c:"rgba(255,255,255,.45)"};${active?`box-shadow:0 2px 12px ${c}22`:""};cursor:pointer">${r}</button>`;
+    }).join('')}
+  </div>`;
+}
+const FX_X = `<button class="fx-x" onclick="event.stopPropagation();closeFactorPanel()" aria-label="Close">✕</button>`;
+// Panel for a Pro-only model a Free user can't run yet (Perplexity / Grok).
+function fxLockedPanel(name){
+  return `<div class="pro-panel fx-panel" style="--accent:#ffd700;border-color:rgba(255,215,0,.3)">
+    <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#ffd700">${chipLabel(name).toUpperCase()}</span>
+      <span style="color:rgba(255,255,255,.25)">·</span>
+      <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:#ffd700">PRO</span>
+      <span style="margin-left:auto">${FX_X}</span>
+    </div>
+    <div class="fx-lock">
+      <div class="fx-ghost">${fxGhostRows(4)}</div>
+      <div class="fx-cta">
+        <p style="font-size:13px;font-weight:800;color:#fff">See ${chipLabel(name)}'s ${TIER_FACTORS.pro} weighted factors</p>
+        <p style="font-size:11px;color:rgba(255,255,255,.55)">Pro runs all 5 models, ${TIER_FACTORS.pro} weighted factors each.</p>
+        <button onclick="showPricingModal()" style="padding:8px 16px;border-radius:10px;font-size:11.5px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Unlock with Pro</button>
+      </div>
+    </div>
+  </div>`;
+}
+// Factor list + tier upsell for one model result.
+function fxFactorsHTML(m){
+  const rows = riskWeightedFactors(m.factors, state.risk);
+  if (!rows.length) return `<p style="font-size:11.5px;color:rgba(255,255,255,.78);line-height:1.7">${escHtml(m.reasoning || m.summary || '')}</p>`;
+  const tier = state.tier || 'free';
+  let out = `${fxRiskButtons()}
+    ${state.risk !== 'moderate' ? `<p class="fx-note">Weights tuned for ${state.risk}: ${state.risk==='conservative'?'bear-case factors count more':'bull-case factors count more'}.</p>` : ''}
+    <div class="fx-list">${fxRowsHTML(rows, prevFactorsFor(m.model))}</div>`;
+  if (tier === 'free') {
+    const extra = TIER_FACTORS.pro - TIER_FACTORS.free;
+    out += `<div class="fx-lock"><div class="fx-ghost">${fxGhostRows(extra)}</div>
+      <div class="fx-cta"><p style="font-size:13px;font-weight:800;color:#fff">+${extra} more factors on Pro</p>
+      <p style="font-size:11px;color:rgba(255,255,255,.55)">Pro: all 5 models, ${TIER_FACTORS.pro} weighted factors each.</p>
+      <button onclick="showPricingModal()" style="padding:8px 16px;border-radius:10px;font-size:11.5px;font-weight:700;background:#ffd700;color:#0a0f1e;border:none;cursor:pointer">Upgrade to Pro</button></div></div>`;
+  } else if (tier === 'pro') {
+    out += `<a href="pricing.html" class="fx-more" style="text-decoration:none">Premium: every factor explained, with key numbers and timing ›</a>`;
+  }
+  return out;
+}
+// ── "What the models agree on" (replaces the old Bull Case / Bear Case cards) ─────────────
+// Groups every model's factors by category, so the same driver lines up across models
+// even when each model names it differently. Built entirely from data already returned.
+const AG_MODELS = ['Claude','GPT-4o','Gemini','Perplexity','Grok'];
+const AG_SHORT = { Claude:'Claude', 'GPT-4o':'GPT', Gemini:'Gemini', Perplexity:'Pplx', Grok:'Grok' };
+function fxSide(d){ return d === 'sb' || d === 'b' ? 'bull' : d === 'br' || d === 'sbr' ? 'bear' : 'n'; }
+function hasFactorData(ai){ return !!(ai && (ai.models || []).some(m => m && !m.error && Array.isArray(m.factors) && m.factors.length)); }
+function agreeHTML(ai){
+  const models = (ai.models || []).filter(m => m && !m.error && Array.isArray(m.factors) && m.factors.length);
+  const groups = {}; let bull = 0, bear = 0;
+  models.forEach(m => m.factors.forEach(f => {
+    const key = f.c && f.c !== 'Other' ? f.c : 'f:' + String(f.f || '').toLowerCase();
+    const g = groups[key] || (groups[key] = { cat: f.c && f.c !== 'Other' ? f.c : '', items: [], total: 0 });
+    const prev = g.items.find(x => x.model === m.model);
+    if (prev) { prev.w += Number(f.w) || 0; if ((Number(f.w)||0) > prev.topW) { prev.topW = Number(f.w)||0; prev.f = f.f; prev.r = f.r; prev.d = f.d; } }
+    else g.items.push({ model: m.model, f: f.f, r: f.r, d: f.d, w: Number(f.w) || 0, topW: Number(f.w) || 0 });
+    g.total += Number(f.w) || 0;
+    const side = fxSide(f.d); if (side === 'bull') bull += Number(f.w) || 0; if (side === 'bear') bear += Number(f.w) || 0;
+  }));
+  const list = Object.values(groups).sort((a, b) => b.total - a.total).slice(0, 5);
+  const tot = bull + bear || 1, bullPct = Math.round(bull / tot * 100);
+  const n = models.length;
+  const rows = list.map((g, gi) => {
+    const top = g.items.slice().sort((a, b) => b.topW - a.topW)[0];
+    const sides = g.items.map(x => fxSide(x.d));
+    const nb = sides.filter(x => x === 'bull').length, nr = sides.filter(x => x === 'bear').length, nn = sides.filter(x => x === 'n').length;
+    const kind = nb && nr ? 'split' : nb ? 'bull' : nr ? 'bear' : 'n';
+    const T = { bull:['Bull','#1e9e4a','#1e9e4a1f','#1e9e4a55'], bear:['Bear','#ff6b6b','#ff6b6b1f','#ff6b6b55'], split:['Split','#b3a8ff','rgba(139,123,255,.15)','rgba(139,123,255,.4)'], n:['Neutral','#e3b341','#e3b3411f','#e3b34155'] }[kind];
+    const avg = Math.round(g.items.reduce((a, x) => a + x.w, 0) / g.items.length);
+    const sub = kind === 'split'
+      ? `Models disagree: ${[nb && `${nb} bullish`, nr && `${nr} bearish`, nn && `${nn} neutral`].filter(Boolean).join(', ')}`
+      : `${g.items.length} of ${n} models · avg weight ${avg}%`;
+    const votes = AG_MODELS.filter(name => models.some(m => m.model === name)).map(name => {
+      const it = g.items.find(x => x.model === name);
+      const c = !it ? null : fxSide(it.d) === 'bull' ? '#00c896' : fxSide(it.d) === 'bear' ? '#ff6b6b' : '#e3b341';
+      return `<i style="background:${c ? c + '26' : 'transparent'};border:1px solid ${c ? c + '80' : 'rgba(255,255,255,.08)'};color:${c || 'rgba(255,255,255,.25)'}">${AG_SHORT[name]}</i>`;
+    }).join('');
+    const detail = g.items.map(x => {
+      const dir = FACTOR_DIR[x.d] || FACTOR_DIR.n;
+      return `<div class="ag-why"><span class="ag-m">${AG_SHORT[x.model] || x.model}</span><span class="fx-tag" style="color:${dir.c};background:${dir.c}1f;border-color:${dir.c}55">${dir.label}</span><span class="ag-r">${escHtml(x.r || x.f || '')}</span></div>`;
+    }).join('');
+    return `<div class="ag-row" onclick="this.classList.toggle('open')">
+      <div class="ag-top"><span class="fx-tag" style="color:${T[1]};background:${T[2]};border-color:${T[3]}">${T[0]}</span>
+        <span class="ag-name">${escHtml(top.f)}${g.cat ? `<span class="ag-cat">${escHtml(g.cat)}</span>` : ''}</span>
+        <div class="ag-votes">${votes}</div><span class="ag-chev">▾</span></div>
+      <p class="ag-sub">${sub}</p>
+      <div class="ag-detail">${detail}</div>
+    </div>`;
+  }).join('');
+  const lockNote = !isPaid() ? `<button class="fx-more" onclick="showPricingModal()">Pro adds Perplexity and Grok to this view ›</button>` : '';
+  return `<div class="card" style="padding:22px 22px 18px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;justify-content:center;margin-bottom:6px"><p class="eyebrow">What the models agree on</p>
+      ${infoBtn("What the models agree on", "Every model lists the weighted factors behind its score. This groups the same driver across models, even when each one names it a little differently, and ranks them by total weight. Bull and Bear mean every model that mentioned it leaned that way. Split means they disagree. Tap a row to see each model's own reasoning.")}</div>
+    <p style="text-align:center;font-size:11.5px;color:rgba(255,255,255,.45);margin-bottom:12px">The biggest drivers across ${n === 5 ? 'all 5 AIs' : n + ' AI models'}, by total weight</p>
+    <div class="ag-tug"><div style="width:${bullPct}%;background:linear-gradient(90deg,#1e9e4a,#00c896)"></div><div style="width:${100-bullPct}%;background:linear-gradient(90deg,#ff6b6b,#d62839)"></div></div>
+    <div class="ag-tug-l"><span>Bull case <b>${bullPct}%</b> of total weight</span><span>Bear case <b>${100-bullPct}%</b></span></div>
+    <div style="margin-top:8px">${rows}</div>
+    ${lockNote}
+  </div>`;
+}
+
+function donutSVG(bull,score,label,loading,opt){
   const r=70,sw=13,C=2*Math.PI*r;
   if (loading) {
     return `<svg width="180" height="180" viewBox="0 0 180 180" class="donut-spin">
@@ -1273,16 +1610,18 @@ function donutSVG(bull,score,label,loading){
   </div>`;
   }
   const bullDash=(bull/100)*C,gap=C*0.015;
-  const lc=label==="BULLISH"?"#00c896":label==="BEARISH"?"#ff4757":"#94a3b8";
+  const lc=(opt&&opt.labelColor)||(label==="BULLISH"?"#00c896":label==="BEARISH"?"#ff4757":"#94a3b8");
+  const rc=opt&&opt.ringColor;
   return `<svg width="180" height="180" viewBox="0 0 180 180" style="transform:rotate(-90deg)">
     <defs>
       <linearGradient id="dgBull" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#16e0a3"/><stop offset="1" stop-color="#00b487"/></linearGradient>
       <linearGradient id="dgBear" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5d6a"/><stop offset="1" stop-color="#e23a4e"/></linearGradient>
       <filter id="dGlow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="3.5" flood-color="#00c896" flood-opacity="0.5"/></filter>
+      ${rc?`<filter id="dGlowF" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="0" stdDeviation="3.5" flood-color="${rc}" flood-opacity="0.5"/></filter>`:''}
     </defs>
     <circle cx="90" cy="90" r="${r}" fill="none" stroke="#1b2438" stroke-width="${sw}"/>
     <circle cx="90" cy="90" r="${r}" fill="none" stroke="url(#dgBear)" stroke-width="${sw}" stroke-dasharray="${C-bullDash-gap} ${bullDash+gap}" stroke-dashoffset="${-(bullDash+gap/2)}" stroke-linecap="round"/>
-    <circle cx="90" cy="90" r="${r}" fill="none" stroke="url(#dgBull)" stroke-width="${sw}" stroke-dasharray="${bullDash-gap/2} ${C-bullDash+gap/2}" stroke-dashoffset="0" stroke-linecap="round" filter="url(#dGlow)"/>
+    <circle cx="90" cy="90" r="${r}" fill="none" stroke="${rc||'url(#dgBull)'}" stroke-width="${sw}" stroke-dasharray="${bullDash-gap/2} ${C-bullDash+gap/2}" stroke-dashoffset="0" stroke-linecap="round" filter="url(#${rc?'dGlowF':'dGlow'})" style="transition:stroke .3s"/>
   </svg>
   <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center">
     <span class="tnum" style="font-size:40px;font-weight:900;color:#fff;line-height:1;letter-spacing:-.02em">${score}%</span>
@@ -1339,7 +1678,7 @@ async function analyzeStock() {
   state.ticker = ticker;
   state.loading = true;
   state.viewingSavedDate = null;
-  state.expandedReasoning = {};
+  state.expandedReasoning = {}; state.factorModel = null;
   state.expandedBullItems = {};
   state.expandedBearItems = {};
   state.expandedNewsItems = {};
@@ -1680,60 +2019,13 @@ function render(){
           </span>
         </div>
         <div class="donut-wrap" style="position:relative;width:180px;height:180px;display:inline-flex;align-items:center;justify-content:center;margin-bottom:16px">
-          ${donutSVG(consensus.bull, consensus.score, consensus.label, state.loading)}
-        </div>
-        <div class="cscore" style="display:flex;justify-content:center;gap:20px;flex-wrap:wrap;margin-bottom:10px">
-          ${(()=>{
-            const ai = state.aiData[state.ticker];
-            const models = ai ? ai.models : [];
-            return [
-              {name:'Claude',     score: models.find(m=>m.model==='Claude'     && !m.error)?.bullScore ?? null, proOnly:false},
-              {name:'GPT-4o',     score: models.find(m=>m.model==='GPT-4o'     && !m.error)?.bullScore ?? null, proOnly:false},
-              {name:'Gemini',     score: models.find(m=>m.model==='Gemini'     && !m.error)?.bullScore ?? null, proOnly:false},
-              {name:'Perplexity', score: models.find(m=>m.model==='Perplexity' && !m.error)?.bullScore ?? null, proOnly:true},
-              {name:'Grok',       score: models.find(m=>m.model==='Grok'       && !m.error)?.bullScore ?? null, proOnly:true}
-            ].map(m=>{
-              const hasScore = m.score !== null;
-              const lockedProOnly = m.proOnly && !isPaid();
-              const color = hasScore ? (m.score>=60?'#00c896':m.score>=40?'#e3b341':'#ff4757') : 'rgba(255,255,255,.2)';
-              const adj = consensus.adj || 0;
-              // Every chip is interactive: hover shows the active model, click opens a
-              // persistent popup (stays open until an outside click). Only Claude has a
-              // second selectable option today; the rest are consistent & future-ready.
-              const claudeErr = m.name === 'Claude' && !!state.claudeError && !state.claudeReanalyzing;
-              // Gold is suppressed while an error is showing — never gold without a real success.
-              const fableOn = m.name === 'Claude' && isPaid() && state.useFable && !claudeErr;
-              const claudeBusy = m.name === 'Claude' && state.claudeReanalyzing;
-              // Per-model background retry state (any model that failed its first attempt).
-              const retrying = state.modelRetry[m.name] === 'retrying';
-              const failed = state.modelRetry[m.name] === 'failed';
-              const isBusy = claudeBusy || retrying;       // show a loading spinner
-              const isErr = claudeErr || failed;           // show the ⚠ error mark
-              const accent = isErr ? '#ff4757' : fableOn ? '#ffd700' : color;
-              const display = isBusy
-                ? `<span class="pulse-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${fableOn?'#ffd700':'#5a9bff'}"></span>`
-                : isErr ? '⚠'
-                : lockedProOnly ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : hasScore ? Math.min(99,Math.max(1,m.score+adj))+'%' : (state.loading ? '...' : '—');
-              // F5 badge when Fable is active; a subtle gold sparkle teaser on the Claude
-              // chip for Free users (hints there's a premium model behind this slot).
-              const f5badge = fableOn
-                ? `<span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#ffd700;background:rgba(255,215,0,.14);border:1px solid rgba(255,215,0,.4);padding:1px 5px;border-radius:5px">F5</span>`
-                : (m.name === 'Claude' && !isPaid() ? `<span style="font-size:10px;color:#ffd700;opacity:.85;line-height:1">✦</span>` : '');
-              const tipText = modelTipText(m.name).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
-              const bg = isErr ? 'rgba(255,71,87,.08)' : fableOn ? 'rgba(255,215,0,.1)' : lockedProOnly ? 'rgba(255,215,0,.06)' : 'rgba(255,255,255,.04)';
-              const bd = isErr ? 'rgba(255,71,87,.4)' : fableOn ? 'rgba(255,215,0,.45)' : lockedProOnly ? 'rgba(255,215,0,.2)' : 'rgba(255,255,255,.07)';
-              const dotColor = isBusy ? (fableOn?'#ffd700':'#5a9bff') : isErr ? '#ff4757' : color;
-              return `<div data-model-chip="${m.name}"${m.name==='Claude'?' data-claude-chip="1"':''} tabindex="0" onclick="openModelPopup('${m.name}')" onmouseenter="showTip(this)" onmouseleave="hideTip()" onfocus="showTip(this)" onblur="hideTip()" data-tip-title="${modelTipTitle(m.name)}" data-tip-text="${tipText}" style="display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;cursor:pointer;background:${bg};border:1px solid ${bd}${fableOn?';box-shadow:0 0 0 1px rgba(255,215,0,.15),0 2px 10px rgba(255,215,0,.12)':''}"><div style="width:7px;height:7px;border-radius:50%;background:${dotColor};box-shadow:0 0 6px ${hasScore||isBusy||isErr?dotColor:'transparent'}"></div><span style="font-size:11.5px;color:${fableOn?'#ffd700':'rgba(255,255,255,.55)'};font-weight:${fableOn?'700':'500'}">${chipLabel(m.name)}</span>${f5badge}<span class="tnum" style="font-size:11.5px;font-weight:800;color:${isBusy?(fableOn?'#ffd700':'#5a9bff'):accent}">${display}</span></div>`;
-            }).join('');
-          })()}
+          ${(()=>{ const fr = focusedRing(state.aiData[state.ticker], consensus.adj); const gv = fr ? fr.score : consensus.score; const glow = `<div class="cglow" style="--g:${state.loading ? '61,133,255' : glowRGB(gv)}"></div>`; return glow + (fr ? donutSVG(fr.score, fr.score, fr.label, false, {ringColor:fr.color, labelColor:fr.color}) : donutSVG(consensus.bull, consensus.score, consensus.label, state.loading)); })()}
         </div>
         ${(()=>{
+          // Model pills (replace the old score chips + "See individual model analysis" button).
+          // Tap a pill: its factor panel slides open and the ring + glow sweep to its score.
           const ai = state.aiData[state.ticker];
-          if (!ai || state.loading) return '';
-          const models = ai.models || [];
-          // Fixed display order. Claude / GPT-4o / Gemini are shown to EVERY tier (Free too).
-          // Perplexity + Grok are Pro-only: they render as a locked upsell row for Free,
-          // matching their score chips. They are never called for Free (null-gated server-side).
+          const models = ai ? (ai.models || []) : [];
           const order = [
             { name:'Claude', proOnly:false },
             { name:'GPT-4o', proOnly:false },
@@ -1741,76 +2033,70 @@ function render(){
             { name:'Perplexity', proOnly:true },
             { name:'Grok', proOnly:true }
           ];
-          const rowHasContent = (o) => {
-            if (o.proOnly && !isPaid()) return true; // locked upsell row (Free)
-            if (state.modelRetry[o.name]) return true; // retrying or failed (show loading/failed card)
-            if (o.name==='Claude' && (state.claudeError || state.claudeReanalyzing)) return true;
-            return !!models.find(x => x.model===o.name && !x.error && x.reasoning);
-          };
-          const rows = order.filter(rowHasContent);
-          if (!rows.length) return '';
-          const open = state.expandedReasoning['_all'];
-          return `<button onclick="state.expandedReasoning['_all']=!state.expandedReasoning['_all'];render()" class="pro-pill" style="width:100%;justify-content:center;border-radius:12px;padding:12px 14px;font-size:11.5px;font-weight:700;margin-top:2px;${open?'filter:brightness(1.08);':''}">
-            <span class="dot"></span>See individual model analysis<span class="chev">${open?'▴':'▾'}</span>
-          </button>
-          ${open ? `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
-            ${rows.map(o => {
-              // Locked Pro-only upsell row (Free users → Perplexity / Grok)
-              if (o.proOnly && !isPaid()) {
-                return `<div class="pro-panel" onclick="showPricingModal()" style="cursor:pointer;display:flex;align-items:center;gap:9px">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                  <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#ffd700">${chipLabel(o.name).toUpperCase()}</span>
-                  <span style="font-size:11.5px;color:rgba(255,255,255,.5);margin-left:auto">Unlock with Pro</span>
-                </div>`;
-              }
-              // Retrying: keep the card in a loading state — no visible difference from a normal load.
-              if (state.modelRetry[o.name] === 'retrying') {
-                return `<div class="pro-panel">
-                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-                    <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#5a9bff">${chipLabel(o.name).toUpperCase()}</span>
-                    <span style="color:rgba(255,255,255,.25)">·</span>
-                    <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:#5a9bff">RUNNING…</span>
-                  </div>
-                  <div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:11.5px;color:rgba(255,255,255,.6)">Fetching ${chipLabel(o.name)}'s analysis…</span></div>
-                </div>`;
-              }
-              // Failed after both retries: clear failed state with a real reason + manual retry.
-              if (state.modelRetry[o.name] === 'failed') {
-                return `<div class="pro-panel" style="--accent:#ff4757;border-color:rgba(255,71,87,.4)">
-                  <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-                    <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:#ff4757">${chipLabel(o.name).toUpperCase()}</span>
-                    <span style="color:rgba(255,255,255,.25)">·</span>
-                    <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:#ff4757">DIDN'T RESPOND</span>
-                  </div>
-                  <p style="font-size:11.5px;color:#ff8c42;line-height:1.7;margin-bottom:11px">${state.modelRetryMsg[o.name] ? escHtml(state.modelRetryMsg[o.name]) : "This model didn't respond. Could be rate limits, an outage, or a model version issue."}</p>
-                  ${state.modelRetryMsg[o.name] ? '' : `<button onclick="manualRetryModel('${o.name}')" class="nav-btn" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:700;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.14);cursor:pointer;display:inline-flex;align-items:center;gap:6px">↻ Retry ${chipLabel(o.name)}</button>`}
-                </div>`;
-              }
-              const m = models.find(x => x.model===o.name && !x.error && x.reasoning);
-              const claudeErr = o.name === 'Claude' && !!state.claudeError && !state.claudeReanalyzing;
-              const busy = o.name === 'Claude' && state.claudeReanalyzing;
-              if (!m && !claudeErr && !busy) return '';
-              const isClaudeFable = o.name === 'Claude' && isPaid() && state.useFable && !claudeErr;
-              const accent = claudeErr ? '#ff4757' : isClaudeFable ? '#ffd700' : '#5a9bff';
-              const label = claudeErr ? 'ERROR' : o.name === 'Claude' ? (isClaudeFable ? 'FABLE 5' : 'HAIKU 5.5') : 'MODEL ANALYSIS';
-              const labelColor = claudeErr ? '#ff4757' : '#ffd700';
-              const scoreColor = m && m.bullScore>=60?'#00c896':m && m.bullScore>=40?'#e3b341':'#ff4757';
-              const goldPanel = isClaudeFable ? '--accent:#ffd700;border-color:rgba(255,215,0,.4);background:linear-gradient(180deg,rgba(255,215,0,.07),#0b1224);box-shadow:0 0 0 1px rgba(255,215,0,.12),0 8px 24px rgba(0,0,0,.4)' : claudeErr ? '--accent:#ff4757;border-color:rgba(255,71,87,.4)' : '';
-              return `<div class="pro-panel" style="${goldPanel}">
-              <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-                <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:${accent}">${chipLabel(o.name).toUpperCase()}</span>
+          if (state.loading || !ai) {
+            return `<div class="fx-tabs">${order.map(o => `<span class="pro-pill fx-tab" style="--pp-dot:#5a9bff;opacity:.75;cursor:default"><span class="dot"></span>${chipLabel(o.name)}<span class="tnum" style="font-weight:800;color:rgba(255,255,255,.4)">${state.loading ? '…' : '—'}</span></span>`).join('')}</div>`;
+          }
+          const adjNow = consensus.adj || 0;
+          const sel = order.find(o => o.name === state.factorModel) ? state.factorModel : null;
+          const pills = order.map(o => {
+            const locked = o.proOnly && !isPaid();
+            const m = models.find(x => x.model===o.name && !x.error);
+            const s = m && m.bullScore != null ? Math.min(99, Math.max(1, Math.round(m.bullScore + adjNow))) : null;
+            const claudeErr = o.name === 'Claude' && !!state.claudeError && !state.claudeReanalyzing;
+            const fableOn = o.name === 'Claude' && isPaid() && state.useFable && !claudeErr;
+            const busy = (o.name === 'Claude' && state.claudeReanalyzing) || state.modelRetry[o.name] === 'retrying';
+            const failed = claudeErr || state.modelRetry[o.name] === 'failed';
+            const c = locked || fableOn ? '#ffd700' : failed ? '#ff4757' : busy ? '#5a9bff' : s != null ? scoreHex(s) : '#5a9bff';
+            const isSel = sel === o.name;
+            const val = locked ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#ffd700" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>'
+              : busy ? `<span class="pulse-dot" style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#5a9bff"></span>`
+              : failed ? `<span style="color:#ff4757;font-weight:800">⚠</span>`
+              : s != null ? `<span class="tnum" style="font-weight:800;color:${c}">${s}%</span>` : '<span style="color:rgba(255,255,255,.35)">—</span>';
+            const f5 = fableOn ? `<span style="font-size:9px;font-weight:800;letter-spacing:.04em;color:#ffd700;background:rgba(255,215,0,.14);border:1px solid rgba(255,215,0,.4);padding:1px 5px;border-radius:5px">F5</span>` : '';
+            const style = locked ? '--pp-bg:rgba(255,215,0,.06);--pp-bd:rgba(255,215,0,.3);' : fableOn ? '--pp-bg:rgba(255,215,0,.1);--pp-bd:rgba(255,215,0,.45);' : isSel ? `--pp-bd:${c};` : '';
+            return `<button onclick="selectFactorModel('${o.name}')" data-model-chip="${o.name}" class="pro-pill fx-tab${isSel?' sel':''}" style="--pp-dot:${c};${style}"><span class="dot"></span>${chipLabel(o.name)}${f5}${val}<span class="chev">${isSel?'▴':'▾'}</span></button>`;
+          }).join('');
+          const panelFor = (name) => {
+            const o = order.find(x => x.name === name);
+            if (o.proOnly && !isPaid()) return fxLockedPanel(name);
+            const head = (accent, label, labelColor, right) => `<div style="display:flex;align-items:center;gap:7px;margin-bottom:10px">
+                <span style="font-size:10px;font-weight:800;letter-spacing:.1em;color:${accent}">${chipLabel(name).toUpperCase()}</span>
                 <span style="color:rgba(255,255,255,.25)">·</span>
-                <span style="font-size:10px;font-weight:700;letter-spacing:.12em;color:${labelColor}">${label}</span>
-                ${busy || claudeErr ? '' : `<span class="tnum" style="margin-left:auto;font-size:11.5px;font-weight:800;color:${scoreColor}">${m.bullScore}%</span>`}
-              </div>
+                <button class="fx-hdr-btn" onclick="openModelPopup('${name}')" style="color:${labelColor}" title="Model details">${label} ⇄</button>
+                <span style="margin-left:auto;display:inline-flex;align-items:center">${right||''}${FX_X}</span>
+              </div>`;
+            if (state.modelRetry[name] === 'retrying') {
+              return `<div class="pro-panel fx-panel">${head('#5a9bff','RUNNING…','#5a9bff')}
+                <div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:#5a9bff"></span><span style="font-size:11.5px;color:rgba(255,255,255,.6)">Fetching ${chipLabel(name)}'s analysis…</span></div>
+              </div>`;
+            }
+            if (state.modelRetry[name] === 'failed') {
+              return `<div class="pro-panel fx-panel" style="--accent:#ff4757;border-color:rgba(255,71,87,.4)">${head('#ff4757',"DIDN'T RESPOND",'#ff4757')}
+                <p style="font-size:11.5px;color:#ff8c42;line-height:1.7;margin-bottom:11px">${state.modelRetryMsg[name] ? escHtml(state.modelRetryMsg[name]) : "This model didn't respond. Could be rate limits, an outage, or a model version issue."}</p>
+                ${state.modelRetryMsg[name] ? '' : `<button onclick="manualRetryModel('${name}')" class="nav-btn" style="padding:7px 14px;border-radius:9px;font-size:11.5px;font-weight:700;background:rgba(255,255,255,.05);color:#fff;border:1px solid rgba(255,255,255,.14);cursor:pointer;display:inline-flex;align-items:center;gap:6px">↻ Retry ${chipLabel(name)}</button>`}
+              </div>`;
+            }
+            const m = models.find(x => x.model===name && !x.error);
+            const claudeErr = name === 'Claude' && !!state.claudeError && !state.claudeReanalyzing;
+            const busy = name === 'Claude' && state.claudeReanalyzing;
+            if (!m && !claudeErr && !busy) return `<div class="pro-panel fx-panel">${head('#5a9bff','NO DATA','rgba(255,255,255,.5)')}<p style="font-size:11.5px;color:rgba(255,255,255,.55)">No analysis from ${chipLabel(name)} for this run.</p></div>`;
+            const isClaudeFable = name === 'Claude' && isPaid() && state.useFable && !claudeErr;
+            const s = m && m.bullScore != null ? Math.min(99, Math.max(1, Math.round(m.bullScore + adjNow))) : null;
+            const scoreColor = s != null ? scoreHex(s) : '#5a9bff';
+            const accent = claudeErr ? '#ff4757' : isClaudeFable ? '#ffd700' : scoreColor;
+            const label = claudeErr ? 'ERROR' : name === 'Claude' ? (isClaudeFable ? 'FABLE 5' : 'HAIKU 5.5') : 'MODEL';
+            const goldPanel = isClaudeFable ? '--accent:#ffd700;border-color:rgba(255,215,0,.4);background:linear-gradient(180deg,rgba(255,215,0,.07),#0b1224);box-shadow:0 0 0 1px rgba(255,215,0,.12),0 8px 24px rgba(0,0,0,.4)' : claudeErr ? '--accent:#ff4757;border-color:rgba(255,71,87,.4)' : `--accent:${accent}`;
+            return `<div class="pro-panel fx-panel" style="${goldPanel}">
+              ${head(isClaudeFable||claudeErr?accent:'#5a9bff', label, claudeErr?'#ff4757':'#ffd700', busy || claudeErr || s == null ? '' : `<span class="tnum" style="font-size:11.5px;font-weight:800;color:${scoreColor}">${s}%</span>`)}
               ${busy
                 ? `<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span class="pulse-dot" style="width:8px;height:8px;border-radius:50%;background:${accent}"></span><span style="font-size:11.5px;color:rgba(255,255,255,.6)">Re-running with ${state.claudeModelName}…</span></div>`
                 : claudeErr
                 ? `<p style="font-size:11.5px;color:#ff8c42;line-height:1.7">${state.claudeError}</p>`
-                : `<p style="font-size:11.5px;color:rgba(255,255,255,.78);line-height:1.7">${m.reasoning}</p>`}
+                : fxFactorsHTML(m)}
             </div>`;
-            }).join('')}
-          </div>` : ''}`;
+          };
+          return `<div class="fx-tabs" style="margin:0 0 4px">${pills}</div>
+            ${sel ? panelFor(sel) : `<p class="fx-hint">Tap a model to see the weighted factors behind its score.</p>`}`;
         })()}
         <div class="clegend" style="display:flex;justify-content:center;gap:24px;margin-top:18px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06)">
           <div style="display:flex;align-items:center;gap:7px"><div style="width:9px;height:9px;border-radius:3px;background:#00c896;box-shadow:0 0 6px rgba(0,200,150,.6)"></div><span style="font-size:11.5px;color:rgba(255,255,255,.55)">Bull <b class="tnum" style="color:#fff;font-weight:800">${state.loading ? '--' : consensus.bull}%</b></span></div>
@@ -1826,7 +2112,7 @@ function render(){
             ${["conservative","moderate","aggressive"].map(r=>{
               const active=state.risk===r;
               const c={conservative:"#3d85ff",moderate:"#e3b341",aggressive:"#ff4757"}[r];
-              return`<button onclick="state.risk='${r}';render()" class="seg-btn" style="padding:7px 14px;border-radius:10px;font-size:11.5px;font-weight:700;text-transform:capitalize;background:${active?`${c}1f`:"rgba(255,255,255,.03)"};border:1.5px solid ${active?c:"rgba(255,255,255,.08)"};color:${active?c:"rgba(255,255,255,.45)"};${active?`box-shadow:0 2px 12px ${c}22`:""};cursor:pointer">${r}</button>`;
+              return`<button onclick="setRisk('${r}')" class="seg-btn" style="padding:7px 14px;border-radius:10px;font-size:11.5px;font-weight:700;text-transform:capitalize;background:${active?`${c}1f`:"rgba(255,255,255,.03)"};border:1.5px solid ${active?c:"rgba(255,255,255,.08)"};color:${active?c:"rgba(255,255,255,.45)"};${active?`box-shadow:0 2px 12px ${c}22`:""};cursor:pointer">${r}</button>`;
             }).join('')}
           </div>
           <div style="display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap">
@@ -2026,6 +2312,7 @@ function render(){
         </div>`;
       })()}
 
+      ${hasFactorData(state.aiData[state.ticker]) ? agreeHTML(state.aiData[state.ticker]) : `
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px">
         <div>
           <div class="card" style="padding:22px 24px;height:100%;border:1px solid rgba(0,200,150,.15)">
@@ -2125,6 +2412,8 @@ function render(){
           </div>
         </div>
       </div>
+
+      `}
 
       <div style="margin-bottom:24px">
         <div class="card" style="padding:22px 24px">

@@ -58,7 +58,10 @@ const FABLE_MAX_TOKENS = 2200;
 // one-line reason) instead of a reasoning paragraph. Same single call per model; adds
 // roughly 60-80 output tokens per model. Factor count per tier is a paid-plan perk:
 // tune these numbers here (more factors = slightly more output tokens per call).
-const TIER_FACTOR_COUNT = { free: 4, pro: 8, premium: 12 };
+const TIER_FACTOR_COUNT = { free: 3, pro: 6, premium: 6 };
+// Fixed category list so the front end can group the same driver across models
+// ("What the models agree on"), even when each model names it differently.
+const FACTOR_CATEGORIES = ['Growth','Earnings','Guidance','Demand','Product','Competition','Margins','Valuation','Balance sheet','Management','Regulation','Legal','Macro','Sector','Sentiment','Technicals','Other'];
 const FACTOR_DIRECTIONS = ['sb', 'b', 'n', 'br', 'sbr']; // strong bull, bull, neutral, bear, strong bear
 
 function factorCountFor(tier) {
@@ -68,13 +71,20 @@ function factorCountFor(tier) {
 // The JSON fields every model is asked for (shared so all 5 prompts stay identical).
 function factorFieldsSpec(tier) {
   const n = factorCountFor(tier);
-  return `"summary": <ONE sentence, max 20 words: the single biggest reason for your bullScore, plain words, specific to this stock right now>,
-  "factors": <array of ${n} objects: the specific things that actually drove YOUR bullScore, MOST heavily weighted first. Each object has exactly these fields:
+  const floor = n <= 3 ? 15 : 8;
+  // Premium only: compact extra detail per factor, pre-generated so "More" opens instantly.
+  const deep = tier === 'premium' ? `
+    "x": <max 35 words: why this factor matters right now, with the specific facts behind it>,
+    "k": <max 8 words: the single key number or data point, e.g. "$320B big-tech capex guide">,
+    "h": <3 letters for impact over 1 week, 1 month, 1 year, each L (low), M (medium) or H (high), e.g. "LMH">,
+    "fl": <max 15 words: what would flip or cancel this factor>` : '';
+  return `"factors": <array of ${n} objects: the specific things that actually drove YOUR bullScore, MOST heavily weighted first. Each object has exactly these fields:
     "f": <factor name, max 5 words, e.g. "Q3 data center revenue", "China export limits", "Valuation vs peers">,
+    "c": <category, exactly one of: ${FACTOR_CATEGORIES.map(c => `"${c}"`).join(', ')}>,
     "d": <direction, one of "sb" (strong bull), "b" (bull), "n" (neutral / cuts both ways), "br" (bear), "sbr" (strong bear)>,
-    "w": <integer weight; all ${n} weights must add up to 100; how much this factor moved your score>,
-    "r": <max 12 words, the concrete reason; name the event, number or date when you can>
-  Rules: be concrete and current (recent earnings, a specific news story, guidance, valuation vs peers, macro events, overall fundamentals as ONE factor). No generic filler like "strong brand". Weights must be consistent with your bullScore: a high bullScore means bullish factors carry most of the weight, a low one means bearish factors do. Include the strongest bear point even if you are bullish (and vice versa) unless it truly carried no weight.>`;
+    "w": <integer weight, at least ${floor}; all ${n} weights must add up to 100; how much this factor moved your score>,
+    "r": <max 12 words, the concrete reason; name the event, number or date when you can>${deep}
+  Rules: be concrete and current (recent earnings, a specific news story, guidance, valuation vs peers, macro events, overall fundamentals as ONE factor). No generic filler like "strong brand". Only list factors that truly matter; never pad with minor ones. Weights must be consistent with your bullScore: a high bullScore means bullish factors carry most of the weight, a low one means bearish factors do. Include the strongest bear point even if you are bullish (and vice versa) unless it truly carried no weight.>`;
 }
 
 // Server-side cleanup so the UI never breaks on a sloppy model answer: whitelist the
@@ -90,7 +100,14 @@ function sanitizeFactors(result, tier) {
       f: String(x.f ?? x.name ?? '').trim().slice(0, 40),
       d: FACTOR_DIRECTIONS.includes(x.d) ? x.d : 'n',
       w: Math.max(0, Number(x.w ?? x.weight) || 0),
-      r: String(x.r ?? x.reason ?? '').trim().slice(0, 110)
+      r: String(x.r ?? x.reason ?? '').trim().slice(0, 110),
+      c: FACTOR_CATEGORIES.includes(x.c) ? x.c : 'Other',
+      ...(tier === 'premium' ? {
+        x: String(x.x ?? '').trim().slice(0, 300) || undefined,
+        k: String(x.k ?? '').trim().slice(0, 70) || undefined,
+        h: /^[LMH]{3}$/.test(String(x.h ?? '').toUpperCase()) ? String(x.h).toUpperCase() : undefined,
+        fl: String(x.fl ?? '').trim().slice(0, 130) || undefined
+      } : {})
     }))
     .filter(x => x.f)
     .slice(0, max);
@@ -109,7 +126,7 @@ function sanitizeFactors(result, tier) {
   const summary = String(result.summary ?? '').trim().slice(0, 200) || null;
   // Back-compat: the current UI reads `reasoning`. Keep the model's own reasoning if a
   // model still sends one; otherwise show the one-line summary there.
-  const reasoning = result.reasoning || summary || null;
+  const reasoning = result.reasoning || summary || (factors[0] ? `${factors[0].f}: ${factors[0].r}` : null);
   return { ...result, factors, summary, reasoning, factorLimit: max };
 }
 
@@ -911,8 +928,6 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   "bullScore": <number 0-100, your honest bull conviction>,
   "bearScore": <number 0-100, your honest bear conviction>,
   "verdict": <one of: "Strong Buy", "Bullish", "Lean Buy", "Neutral", "Lean Sell", "Bearish", "Strong Sell">,
-  "bullCase": <2-3 specific sentences on the strongest bull argument RIGHT NOW>,
-  "bearCase": <2-3 specific sentences on the most serious bear risk RIGHT NOW>,
   "topCatalyst": <single most important upcoming catalyst>,
   "topRisk": <single most important near-term risk>,
   "confidence": <number 0-100, how confident you are in this analysis>,
@@ -920,8 +935,6 @@ Respond ONLY with a valid JSON object — no markdown, no explanation, no backti
   "industry": <the specific industry e.g. "Semiconductors", "Drug Manufacturers", "Consumer Electronics">,
   "description": <2 sentence company description — what they do and why they matter>,
   "riskProfile": <number 1-10, where 1=very stable blue chip, 10=highly speculative>,
-  "bullCatalysts": <array of 3-4 objects with fields: text (string, the catalyst itself, 1 sentence), date (string like "Jul 2026"), status ("upcoming" if future, "prior" if already happened), detail (string, 2-3 sentences elaborating on THIS SPECIFIC catalyst only — why it matters and what would need to happen for it to play out, plain language, explain any technical term the moment you use it)>,
-  "bearRisks": <array of 3-4 objects with fields: text (string, the risk itself, 1 sentence), detail (string, 2-3 sentences elaborating on THIS SPECIFIC risk only — why it matters and what could trigger it, plain language, explain any technical term the moment you use it)>,
   "news": <array of 3-4 objects — ONLY from last 60 days. Fields: title (string), date (string like "Jun 2026"), tag (one of EARNINGS/NEWS/EVENT/DIVIDEND), detail (string, 2-3 sentences elaborating on THIS SPECIFIC news item only — what happened, why it matters to investors, plain language, explain any technical term the moment you use it)>,
   "bullScore1W": <number 0-100, bull conviction for next 7 days ONLY. Weight heavily: recent price momentum (has it run hard already?), this week's macro events, market sentiment right now, short-term overbought/oversold conditions. Be skeptical of stocks up 15%+ in the last 30 days>,
   "bullScore1M": <number 0-100, bull conviction for next 30 days. Weight: upcoming earnings, sector rotation, news cycle, medium-term trend, whether recent price move is sustainable>,
